@@ -1,6 +1,6 @@
 const supabaseUrl = 'https://holwwaynwfftqxzlinpv.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhvbHd3YXlud2ZmdHF4emxpbnB2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExMDk2OTUsImV4cCI6MjA5NjY4NTY5NX0.2159--CPum38Zt6jydynl_alApVfTlAPYQifu2jjTGo';
-const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+const supabaseApp = window.supabase.createClient(supabaseUrl, supabaseKey);
 
 // ==========================================
 // CONFIGURAÇÃO DE AMBIENTE (MUDE PARA DEPLOY)
@@ -66,7 +66,7 @@ async function init() {
 
 async function loadData() {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await supabaseApp
             .from('armazem')
             .select('racks')
             .eq('id', 1)
@@ -95,7 +95,7 @@ async function saveData() {
     
     // Salva na nuvem
     try {
-        await supabase
+        await supabaseApp
             .from('armazem')
             .upsert({
                 id: 1,
@@ -1670,7 +1670,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!dot || !text) return;
         
         try {
-            const res = await fetch('http://localhost:3000/api/status');
+            const res = await fetch(`${API_BASE_URL}/api/status`);
             if (!res.ok) throw new Error('Not OK');
             const data = await res.json();
             

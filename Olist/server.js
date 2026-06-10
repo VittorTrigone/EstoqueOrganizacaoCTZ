@@ -10,7 +10,11 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const app = express();
 app.use(cors());
 app.use(express.json());
-app.use(express.static(__dirname)); 
+
+// Rota raiz apenas para mostrar que o servidor está vivo
+app.get('/', (req, res) => {
+    res.send('API Backend EstoquePRO Olist funcionando e escutando conexões!');
+}); 
 
 let catalogoEmMemoria = []; 
 
