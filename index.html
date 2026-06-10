@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EstoqueCTZ | Organização e Logística</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Interact.js for Drag and Drop -->
+    <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="brand">
+                <i class="fa-solid fa-boxes-stacked"></i>
+                <span>EstoqueCTZ</span>
+            </div>
+            <ul class="nav-links">
+                <li class="active"><a href="#" id="nav-floorplan"><i class="fa-solid fa-map-location-dot"></i> Planta Baixa</a></li>
+                <li><a href="#" id="nav-itemlist"><i class="fa-solid fa-list"></i> Lista de Itens</a></li>
+                <li><a href="#" id="nav-settings"><i class="fa-solid fa-gear"></i> Configurações</a></li>
+            </ul>
+            <div id="olist-connection-status" style="margin-top: auto; padding: 1.5rem; display: flex; align-items: center; gap: 0.75rem; border-top: 1px solid var(--border-color);">
+                <div id="olist-status-dot" style="width: 12px; height: 12px; border-radius: 50%; background-color: var(--accent-warning); box-shadow: 0 0 8px currentColor; transition: background-color 0.3s ease;"></div>
+                <span id="olist-status-text" style="font-size: 0.875rem; color: var(--text-secondary); font-weight: 600; transition: color 0.3s ease;">Verificando...</span>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-header">
+                <div class="header-title">
+                    <h1 id="page-title">Planta Baixa</h1>
+                    <p id="page-subtitle">Gerencie o layout e os níveis do seu armazém</p>
+                </div>
+                <div class="header-actions" id="floorplan-actions" style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; justify-content: flex-end;">
+                    <div class="zoom-controls" style="display: flex; align-items: center; gap: 0.5rem; background: var(--bg-surface-elevated); border-radius: 4px; padding: 0.2rem 0.5rem;">
+                        <button class="btn-icon btn-small" onclick="window.changeZoom(-0.1)" style="border:none; cursor:pointer; background:transparent; color:var(--text-primary);"><i class="fa-solid fa-minus"></i></button>
+                        <span id="zoom-level-text" style="font-size: 0.875rem; font-weight: bold; width: 45px; text-align: center;">100%</span>
+                        <button class="btn-icon btn-small" onclick="window.changeZoom(0.1)" style="border:none; cursor:pointer; background:transparent; color:var(--text-primary);"><i class="fa-solid fa-plus"></i></button>
+                        <div style="width: 1px; height: 16px; background: var(--border-color); margin: 0 0.2rem;"></div>
+                        <button class="btn-icon btn-small" onclick="window.resetZoom()" title="Ajustar à Tela" style="border:none; cursor:pointer; background:transparent; color:var(--text-primary);"><i class="fa-solid fa-expand"></i></button>
+                    </div>
+                    
+                    <input type="file" id="upload-bg" accept="image/*" style="display: none;">
+                    <button class="btn btn-secondary" onclick="document.getElementById('upload-bg').click()">
+                        <i class="fa-solid fa-image"></i> Subir Planta Baixa
+                    </button>
+                    <button class="btn btn-primary" id="btn-edit-mode">
+                        <i class="fa-solid fa-pen-ruler"></i> Modo Edição
+                    </button>
+                </div>
+            </header>
+
+            <!-- Floor Plan Area -->
+            <div class="floor-plan-container" id="floor-plan-container">
+                <div class="toolbar hidden" id="editor-toolbar">
+                    <div class="toolbar-group">
+                        <button class="btn btn-icon" id="btn-add-aisle" title="Adicionar Corredor">
+                            <i class="fa-solid fa-plus"></i> Corredor
+                        </button>
+                        <button class="btn btn-icon" id="btn-add-rack" title="Adicionar Porta-Pallet">
+                            <i class="fa-solid fa-plus"></i> Estante
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="canvas" id="warehouse-canvas">
+                    <!-- Dynamic Grid will be rendered here -->
+                </div>
+            </div>
+
+            <!-- Item List Area -->
+            <div class="item-list-container hidden" id="item-list-container" style="padding: 2rem; overflow-y: auto;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                    <h2>Relação de Itens no Armazém</h2>
+                    <div class="search-bar" style="width: 350px; position: relative;">
+                        <i class="fa-solid fa-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-secondary);"></i>
+                        <input type="text" id="item-search-input" placeholder="Pesquisar por SKU, Nome ou Estante..." style="width: 100%; padding: 0.6rem 1rem 0.6rem 2.5rem; background: var(--bg-surface-elevated); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 4px;">
+                    </div>
+                </div>
+                
+                <table class="item-table" style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr>
+                            <th style="text-align: left; padding: 1rem; border-bottom: 1px solid var(--border-color);">SKU</th>
+                            <th style="text-align: left; padding: 1rem; border-bottom: 1px solid var(--border-color);">Nome do Produto</th>
+                            <th style="text-align: left; padding: 1rem; border-bottom: 1px solid var(--border-color);">Localização (Olist)</th>
+                            <th style="text-align: left; padding: 1rem; border-bottom: 1px solid var(--border-color);">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="item-list-tbody">
+                        <!-- Items will be injected here -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Settings Area -->
+            <div class="settings-container hidden" id="settings-container" style="padding: 2rem; overflow-y: auto;">
+                <div style="margin-bottom: 1.5rem;">
+                    <h2>Configurações</h2>
+                    <p style="color: var(--text-secondary); margin-top: 0.5rem;">Ajuste suas preferências visuais e gerencie os dados locais do seu armazém.</p>
+                </div>
+                
+                <div style="display: flex; flex-direction: column; gap: 1.5rem; max-width: 800px;">
+                    <!-- Appearance Card -->
+                    <div style="background: var(--bg-surface-elevated); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <h3 style="margin: 0;"><i class="fa-solid fa-palette" style="color: var(--accent-primary);"></i> Aparência</h3>
+                            <p style="color: var(--text-secondary); margin: 0.5rem 0 0 0; font-size: 0.875rem;">Alterne entre modo escuro (Dark) padrão e modo claro (Light).</p>
+                        </div>
+                        <button class="btn btn-secondary" id="btn-toggle-theme" style="white-space: nowrap;">
+                            <i class="fa-solid fa-sun"></i> Mudar Tema
+                        </button>
+                    </div>
+
+                    <!-- Backup Card -->
+                    <div style="background: var(--bg-surface-elevated); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <h3 style="margin: 0;"><i class="fa-solid fa-database" style="color: var(--accent-primary);"></i> Backup e Dados</h3>
+                            <p style="color: var(--text-secondary); margin: 0.5rem 0 0 0; font-size: 0.875rem;">Exporte ou importe a estrutura do armazém.</p>
+                        </div>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button class="btn btn-secondary" id="btn-export-backup" style="border-color: var(--accent-primary); color: var(--accent-primary);">
+                                <i class="fa-solid fa-download"></i> Baixar JSON
+                            </button>
+                            
+                            <input type="file" id="upload-backup" accept=".json" style="display: none;">
+                            <button class="btn btn-secondary" onclick="document.getElementById('upload-backup').click()">
+                                <i class="fa-solid fa-upload"></i> Importar JSON
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Auth Card -->
+                    <div style="background: var(--bg-surface-elevated); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border-color);">
+                        <h3 style="margin: 0;"><i class="fa-solid fa-key" style="color: var(--accent-primary);"></i> Autenticação da API (OAuth)</h3>
+                        <p style="color: var(--text-secondary); margin: 0.5rem 0 1.5rem 0; font-size: 0.875rem;">Credenciais seguras do Olist / Tiny. Ao salvar, os dados são trancados para evitar edições acidentais.</p>
+                        
+                        <div style="margin-bottom: 1rem;">
+                            <label style="display:block; font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.25rem;">URL de Redirecionamento <span style="color: var(--accent-warning);">(⚠️ Copie essa URL e cole nas configurações do App no painel do Tiny)</span></label>
+                            <div style="display: flex; align-items: center; background: var(--bg-base); padding: 0.75rem; border-radius: 4px; border: 1px solid var(--border-color); opacity: 0.7;">
+                                <i class="fa-solid fa-lock" style="color: var(--text-secondary); margin-right: 0.5rem;"></i>
+                                <span id="oauth-redirect-uri" style="color: var(--text-primary); font-family: monospace; user-select: all;"></span>
+                            </div>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+                            <div>
+                                <label style="display:block; font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.25rem;">Client ID</label>
+                                <input type="text" id="oauth-client-id" readonly style="width:100%; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-base); color: var(--text-primary); opacity: 0.7;">
+                            </div>
+                            <div>
+                                <label style="display:block; font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.25rem;">Client Secret</label>
+                                <input type="password" id="oauth-client-secret" readonly style="width:100%; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-base); color: var(--text-primary); opacity: 0.7;">
+                            </div>
+                        </div>
+
+                        <div style="display: flex; gap: 0.5rem; justify-content: flex-end; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+                            <button class="btn btn-secondary" id="btn-oauth-edit">
+                                <i class="fa-solid fa-pen"></i> Editar
+                            </button>
+                            <button class="btn btn-secondary" id="btn-oauth-save" disabled style="opacity: 0.5; cursor: not-allowed;">
+                                <i class="fa-solid fa-save"></i> Salvar Credenciais
+                            </button>
+                            <button class="btn btn-primary" id="btn-oauth-connect">
+                                <i class="fa-solid fa-link"></i> Conectar API
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Rack Inspector Sidebar (Hidden by default) -->
+        <aside class="rack-inspector hidden" id="rack-inspector">
+            <div class="inspector-header">
+                <h2>Detalhes da Estante</h2>
+                <button class="btn-close" id="btn-close-inspector"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="inspector-content" id="inspector-content">
+                <!-- Rack details injected via JS -->
+            </div>
+        </aside>
+    </div>
+
+    <!-- OAuth Loading Overlay -->
+    <div class="bulk-sync-overlay hidden" id="oauth-loading-overlay">
+        <div class="bulk-sync-card">
+            <div class="bulk-sync-spinner"></div>
+            <div class="bulk-sync-title" id="oauth-loading-title">Aguardando Autorização...</div>
+            <div class="bulk-sync-progress" id="oauth-loading-progress" style="font-size: 2rem; font-weight: bold; color: var(--accent-primary); margin-top: 1rem;">0%</div>
+            <p style="color: var(--text-secondary); margin-top: 0.5rem; font-size: 0.875rem;" id="oauth-loading-subtitle">Siga as instruções na janela pop-up do Tiny.</p>
+        </div>
+    </div>
+
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="app.js"></script>
+</body>
+</html>
