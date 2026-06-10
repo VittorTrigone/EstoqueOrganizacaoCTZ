@@ -6,7 +6,7 @@ const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
 // CONFIGURAÇÃO DE AMBIENTE (MUDE PARA DEPLOY)
 // ==========================================
 // Quando colocar o servidor no ar pelo Render, troque aqui pela URL nova. Ex: 'https://seu-app.onrender.com'
-const API_BASE_URL = 'http://localhost:3000';
+const API_BASE_URL = 'https://estoqueorganizacaoctz.onrender.com';
 
 // Estrutura de Dados Espacial (Com Percentuais e Rotação)
 const defaultWarehouseData = {
