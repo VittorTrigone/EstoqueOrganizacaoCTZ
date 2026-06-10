@@ -1130,7 +1130,62 @@ dom.containerFloorplan.addEventListener('click', (e) => {
 dom.containerFloorplan.style.cursor = 'grab';
 dom.canvas.style.cursor = 'grab';
 
-document.addEventListener('DOMContentLoaded', init);
+// === SISTEMA DE LOGIN E INICIALIZAÇÃO ===
+document.addEventListener('DOMContentLoaded', () => {
+    const lockOverlay = document.getElementById('password-lock-overlay');
+    const inputPass = document.getElementById('login-password-input');
+    const btnLogin = document.getElementById('btn-login-submit');
+    const errorMsg = document.getElementById('login-error-msg');
+    
+    // Verifica se já está logado na sessão atual do navegador
+    if (sessionStorage.getItem('estoquepro_auth') === 'true') {
+        lockOverlay.classList.add('hidden');
+        init();
+    } else {
+        // Exibe a tela de login (já está visível por padrão no HTML, apenas garante)
+        lockOverlay.classList.remove('hidden');
+        
+        const tryLogin = async () => {
+            const val = inputPass.value;
+            if (!val) return;
+            
+            btnLogin.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verificando...';
+            btnLogin.disabled = true;
+            errorMsg.classList.add('hidden');
+            
+            try {
+                // Chama a função RPC segura no banco de dados para verificar o hash
+                const { data, error } = await supabaseApp.rpc('verify_password', { input_password: val });
+                
+                if (error) throw error;
+                
+                if (data === true) {
+                    // Senha Correta
+                    sessionStorage.setItem('estoquepro_auth', 'true');
+                    lockOverlay.classList.add('hidden');
+                    init(); // Inicia o sistema
+                } else {
+                    // Senha Incorreta
+                    errorMsg.classList.remove('hidden');
+                    inputPass.value = '';
+                    inputPass.focus();
+                }
+            } catch(err) {
+                console.error("Erro na verificação de senha:", err);
+                errorMsg.innerText = "Erro ao conectar com o banco de dados.";
+                errorMsg.classList.remove('hidden');
+            }
+            
+            btnLogin.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Acessar';
+            btnLogin.disabled = false;
+        };
+        
+        btnLogin.addEventListener('click', tryLogin);
+        inputPass.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') tryLogin();
+        });
+    }
+});
 
 // === INTEGRAÇÃO OLIST (Algoritmo de Agrupamento) ===
 
