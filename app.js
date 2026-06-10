@@ -72,10 +72,11 @@ async function loadData() {
             .eq('id', 1)
             .single();
 
-        if (data && data.racks) {
+        if (data && data.racks && Object.keys(data.racks).length > 0) {
             // Suporta migração: Se estiver salvo como string ou objeto JSON
             warehouseData = typeof data.racks === 'string' ? JSON.parse(data.racks) : data.racks;
             if (!warehouseData.racks) warehouseData.racks = [];
+            if (!warehouseData.aisles) warehouseData.aisles = [];
         } else {
             // Tenta pegar do localStorage antigo como fallback na primeira vez
             const stored = localStorage.getItem('estoquepro_data');
@@ -87,6 +88,9 @@ async function loadData() {
         const stored = localStorage.getItem('estoquepro_data');
         warehouseData = stored ? JSON.parse(stored) : JSON.parse(JSON.stringify(defaultWarehouseData));
     }
+    
+    // Sempre re-renderiza o galpão após carregar
+    renderFloorPlan();
 }
 
 async function saveData() {
