@@ -854,6 +854,11 @@ function calculateSnapAndDrawGuides(targetId, proposedDx, proposedDy, proposedW 
         const oBottom = ((other.y + other.h) / 100) * ch;
         const oCenterY = oTop + ((other.h / 100) * ch / 2);
         
+        // Só tenta o snap se o outro item estiver relativamente perto (max 250px)
+        const dist = Math.hypot(mCenterX - oCenterX, mCenterY - oCenterY);
+        if (dist > 250) continue;
+        
+        
         if (!snappedX) {
             const hEdges = [oLeft, oRight, oCenterX];
             const mHEdges = [mLeft, mRight, mCenterX];
