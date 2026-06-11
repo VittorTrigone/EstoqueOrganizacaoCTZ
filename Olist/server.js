@@ -135,6 +135,18 @@ app.get('/api/debug-produto', (req, res) => {
     res.json({ produto: catalogoEmMemoria.length > 0 ? catalogoEmMemoria[0] : null });
 });
 
+app.get('/api/debug-estoque/:id', async (req, res) => {
+    let config = await lerConfig();
+    const url = `https://erp.tiny.com.br/public-api/v3/estoque/produto/${req.params.id}`;
+    let resposta = await fetch(url, { headers: { 'Authorization': `Bearer ${config.access_token}` } });
+    if (resposta.status === 401) {
+        config.access_token = await renovarToken();
+        resposta = await fetch(url, { headers: { 'Authorization': `Bearer ${config.access_token}` } });
+    }
+    const detalhes = await resposta.json();
+    res.json(detalhes);
+});
+
 app.get('/api/produtos', (req, res) => {
     const termoPesquisa = (req.query.pesquisa || '').toLowerCase().trim();
     
