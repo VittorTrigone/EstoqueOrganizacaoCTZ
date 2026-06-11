@@ -131,6 +131,10 @@ async function sincronizarCatalogo() {
 
 setInterval(sincronizarCatalogo, 1000 * 60 * 10);
 
+app.get('/api/debug-produto', (req, res) => {
+    res.json({ produto: catalogoEmMemoria.length > 0 ? catalogoEmMemoria[0] : null });
+});
+
 app.get('/api/produtos', (req, res) => {
     const termoPesquisa = (req.query.pesquisa || '').toLowerCase().trim();
     
@@ -150,13 +154,46 @@ app.get('/api/produtos', (req, res) => {
     res.json({ itens: resultados });
 });
 
-app.post('/api/produtos/batch', (req, res) => {
+app.post('/api/produtos/batch', async (req, res) => {
     const skus = req.body.skus || [];
     if (!Array.isArray(skus) || skus.length === 0) {
         return res.json({ itens: [] });
     }
     const resultados = catalogoEmMemoria.filter(p => skus.includes(p.sku));
-    res.json({ itens: resultados });
+    
+    let config = await lerConfig();
+    if (!config.access_token) {
+        return res.json({ itens: resultados });
+    }
+
+    const itensComEstoque = [];
+    for (const prod of resultados) {
+        let saldo_real = 0;
+        try {
+            const url = `https://erp.tiny.com.br/public-api/v3/produtos/${prod.id}`;
+            let resposta = await fetch(url, { headers: { 'Authorization': `Bearer ${config.access_token}` } });
+            
+            if (resposta.status === 401) {
+                config.access_token = await renovarToken();
+                resposta = await fetch(url, { headers: { 'Authorization': `Bearer ${config.access_token}` } });
+            }
+            
+            if (resposta.status === 429) {
+                await new Promise(r => setTimeout(r, 1000));
+                resposta = await fetch(url, { headers: { 'Authorization': `Bearer ${config.access_token}` } });
+            }
+
+            if (resposta.ok) {
+                const detalhes = await resposta.json();
+                saldo_real = detalhes.saldo !== undefined ? detalhes.saldo : 0;
+            }
+        } catch(e) {
+            console.error(`Erro ao buscar saldo do produto ${prod.id}:`, e);
+        }
+        itensComEstoque.push({ ...prod, saldo_real });
+    }
+
+    res.json({ itens: itensComEstoque });
 });
 
 app.put('/api/produtos/:id/localizacao', async (req, res) => {

@@ -1260,10 +1260,10 @@ function renderItemList(filterText = '') {
                 data.itens.forEach(produto => {
                     const el = document.getElementById(`estoque-col-${produto.sku}`);
                     if (el) {
-                        // Tiny pode retornar em produto.estoque.saldo, produto.estoque.saldoFisico, ou produto.saldo
+                        // O novo backend retorna o saldo_real consultado em tempo real
                         let saldo = '0';
-                        if (produto.estoque && produto.estoque.saldo !== undefined) saldo = produto.estoque.saldo;
-                        else if (produto.estoque && produto.estoque.saldoFisico !== undefined) saldo = produto.estoque.saldoFisico;
+                        if (produto.saldo_real !== undefined) saldo = produto.saldo_real;
+                        else if (produto.estoque && produto.estoque.saldo !== undefined) saldo = produto.estoque.saldo;
                         else if (produto.saldo !== undefined) saldo = produto.saldo;
                         
                         el.innerText = saldo;
