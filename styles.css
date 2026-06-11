@@ -410,7 +410,7 @@ h1, h2, h3 {
     justify-content: center;
     color: var(--text-primary);
     text-align: center;
-    padding: 2px;
+    padding: 8%; /* Espaço extra das bordas escalável */
     word-break: break-word;
     cursor: grab;
     transition: background 0.2s;
