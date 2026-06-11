@@ -137,7 +137,7 @@ app.get('/api/debug-produto', (req, res) => {
 
 app.get('/api/debug-estoque/:id', async (req, res) => {
     let config = await lerConfig();
-    const url = `https://erp.tiny.com.br/public-api/v3/estoque/produto/${req.params.id}`;
+    const url = `https://erp.tiny.com.br/public-api/v3/produtos/${req.params.id}/estoque`;
     let resposta = await fetch(url, { headers: { 'Authorization': `Bearer ${config.access_token}` } });
     if (resposta.status === 401) {
         config.access_token = await renovarToken();
@@ -183,7 +183,7 @@ app.post('/api/produtos/batch', async (req, res) => {
         let saldo_real = 0;
         try {
             // Buscando especificamente no endpoint de ESTOQUE do produto
-            const url = `https://erp.tiny.com.br/public-api/v3/estoque/produto/${prod.id}`;
+            const url = `https://erp.tiny.com.br/public-api/v3/produtos/${prod.id}/estoque`;
             let resposta = await fetch(url, { headers: { 'Authorization': `Bearer ${config.access_token}` } });
             
             if (resposta.status === 401) {
