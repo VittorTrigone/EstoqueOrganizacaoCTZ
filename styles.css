@@ -325,7 +325,7 @@ h1, h2, h3 {
 
 /* Rack Inspector Sidebar */
 .rack-inspector {
-    width: 600px;
+    width: 350px;
     background-color: var(--bg-surface);
     border-left: 1px solid var(--border-color);
     display: flex;
