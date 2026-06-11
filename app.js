@@ -947,6 +947,7 @@ function setupInteractJs() {
         .resizable({
             enabled: false,
             ignoreFrom: '.rotate-handle',
+            margin: 5,
             edges: { left: true, right: true, bottom: true, top: true },
             listeners: {
                 start(event) { 
