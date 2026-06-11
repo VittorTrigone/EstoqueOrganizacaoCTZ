@@ -347,6 +347,10 @@ h1, h2, h3 {
     height: 100%;
 }
 
+.active-edit-mode #btn-close-inspector {
+    display: none;
+}
+
 .inspector-header {
     padding: 1.5rem;
     border-bottom: 1px solid var(--border-color);
