@@ -134,11 +134,14 @@ setInterval(sincronizarCatalogo, 1000 * 60 * 10);
 app.get('/api/produtos', (req, res) => {
     const termoPesquisa = (req.query.pesquisa || '').toLowerCase().trim();
     
+    // Filtra apenas produtos ativos (situação 'A' no Tiny)
+    const produtosAtivos = catalogoEmMemoria.filter(p => !p.situacao || p.situacao === 'A');
+
     if (!termoPesquisa) {
-        return res.json({ itens: catalogoEmMemoria.slice(0, 100) });
+        return res.json({ itens: produtosAtivos.slice(0, 100) });
     }
 
-    const resultados = catalogoEmMemoria.filter(produto => {
+    const resultados = produtosAtivos.filter(produto => {
         const nome = (produto.descricao || '').toLowerCase();
         const sku = (produto.sku || '').toLowerCase();
         return nome.includes(termoPesquisa) || sku.includes(termoPesquisa);
