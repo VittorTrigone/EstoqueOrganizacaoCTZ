@@ -372,14 +372,17 @@ function renderFloorPlan() {
 
 function toggleEditMode() {
     isEditMode = !isEditMode;
+    const btnUploadBg = document.getElementById('btn-upload-bg');
     if (isEditMode) {
         dom.appContainer.classList.add('active-edit-mode');
         dom.btnEditMode.innerHTML = '<i class="fa-solid fa-check"></i> Concluir Edição';
         dom.toolbar.classList.remove('hidden');
+        if (btnUploadBg) btnUploadBg.classList.remove('hidden');
     } else {
         dom.appContainer.classList.remove('active-edit-mode');
         dom.btnEditMode.innerHTML = '<i class="fa-solid fa-pen-ruler"></i> Modo Edição';
         dom.toolbar.classList.add('hidden');
+        if (btnUploadBg) btnUploadBg.classList.add('hidden');
         closeInspector();
         renderFloorPlan(); // Remove alças de rotação visualmente
     }
