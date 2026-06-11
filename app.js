@@ -394,7 +394,19 @@ function renderFloorPlan() {
                 itemDiv.className = 'lod-item';
                 itemDiv.draggable = true;
                 itemDiv.dataset.index = index;
-                itemDiv.innerHTML = `<strong>${item.sku}</strong>`;
+                
+                // Texto com tamanho dinâmico pra evitar quebrar feio
+                const displayText = item.name || item.sku;
+                itemDiv.innerHTML = `<strong>${displayText}</strong>`;
+                
+                if (level.items.length <= 2) {
+                    itemDiv.style.fontSize = '0.70rem';
+                } else if (level.items.length <= 4) {
+                    itemDiv.style.fontSize = '0.55rem';
+                } else {
+                    itemDiv.style.fontSize = '0.45rem';
+                }
+                
                 itemDiv.title = item.name || '';
                 
                 itemDiv.addEventListener('dragstart', (e) => {
@@ -877,6 +889,7 @@ window.submitNewItem = async function(rackId, levelId) {
     if (!level.items) level.items = [];
     level.items.push({ sku, name, olistId: window.currentSelectedOlistProductId });
     saveData();
+    renderFloorPlan(); // Atualiza a planta (e a visão de Raio-X se estiver com zoom)
     openInspector(rackId); // re-render para mostrar o novo item e fechar o form
 };
 
@@ -895,6 +908,7 @@ window.removeItemFromLevel = async function(rackId, levelId, index) {
             await window.syncLocationToOlist(sku, olistId);
         }
         
+        renderFloorPlan(); // Atualiza a planta (e a visão de Raio-X se estiver com zoom)
         openInspector(rackId);
     }
 };
