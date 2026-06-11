@@ -739,6 +739,12 @@ window.submitNewItem = async function(rackId, levelId) {
     const level = rack.levels.find(l => l.id === levelId);
     const parentAisle = findParentAisleForRack(rack);
     
+    // Verificação para impedir produto duplicado no mesmo nível
+    if (level.items && level.items.some(item => item.sku === sku)) {
+        alert("Este produto já está adicionado neste mesmo nível da estante.");
+        return;
+    }
+    
     const olistIdToUse = window.currentSelectedOlistProductId || window.getOlistIdForSKU(sku);
     if (olistIdToUse) {
         const btnSalvar = document.querySelector(`#add-item-container-${levelId} .btn-primary`);
