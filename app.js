@@ -402,6 +402,7 @@ function toggleEditMode() {
         dom.btnEditMode.innerHTML = '<i class="fa-solid fa-check"></i> Concluir Edição';
         dom.toolbar.classList.remove('hidden');
         if (btnUploadBg) btnUploadBg.classList.remove('hidden');
+        closeInspector(); // Força a exibição do painel com "Nada Selecionado"
     } else {
         dom.appContainer.classList.remove('active-edit-mode');
         dom.btnEditMode.innerHTML = '<i class="fa-solid fa-pen-ruler"></i> Modo Edição';
@@ -777,10 +778,31 @@ window.removeItemFromList = function(rackId, levelId, itemIndex) {
     // Obsoleto, mantido apenas para prevenir erros caso haja cache de evento
 };
 
+function showEmptySelectionInspector() {
+    dom.inspector.querySelector('.inspector-header h2').textContent = 'Propriedades';
+    dom.inspectorContent.innerHTML = `
+        <div style="display:flex; height:100%; align-items:center; justify-content:center; color:var(--text-secondary); flex-direction:column; gap:1rem; margin-top: 4rem;">
+            <i class="fa-solid fa-mouse-pointer" style="font-size:3rem; opacity:0.3;"></i>
+            <p style="font-size:1.1rem; font-weight:bold;">Nada Selecionado</p>
+            <p style="font-size:0.85rem; text-align:center;">Clique em uma estante ou corredor no mapa<br>para visualizar ou editar suas propriedades.</p>
+        </div>
+    `;
+    dom.inspector.classList.remove('hidden');
+}
+
 function closeInspector() {
-    dom.inspector.classList.add('hidden');
     selectedItem = null;
-    if (isEditMode) renderFloorPlan(); // Remove alça se tiver deselecionado
+    if (isEditMode) {
+        showEmptySelectionInspector();
+    } else {
+        dom.inspector.classList.add('hidden');
+    }
+    // Remove alça visual e highlight se tiver deselecionado
+    document.querySelectorAll('.rack, .aisle').forEach(r => {
+        r.style.borderColor = 'var(--border-color)';
+        r.style.boxShadow = 'var(--shadow-md)';
+    });
+    document.querySelectorAll('.rotate-handle').forEach(h => h.remove());
 }
 
 // === SMART GUIDES (SNAPPING) ===
@@ -1093,6 +1115,12 @@ function setupEventListeners() {
     dom.btnAddAisle.addEventListener('click', addAisle);
     dom.btnAddRack.addEventListener('click', addRack);
     dom.btnCloseInspector.addEventListener('click', closeInspector);
+    
+    dom.canvas.addEventListener('click', (e) => {
+        if (isEditMode && e.target === dom.canvas) {
+            closeInspector();
+        }
+    });
     
     dom.navFloorplan.addEventListener('click', (e) => { e.preventDefault(); switchTab('floorplan'); });
     dom.navItemlist.addEventListener('click', (e) => { e.preventDefault(); switchTab('itemlist'); });
