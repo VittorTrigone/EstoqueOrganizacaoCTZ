@@ -601,11 +601,9 @@ function findParentAisleForRack(rack) {
 // === PAINEL DE EDIÇÃO (PROPRIEDADES) ===
 window.openEditorPropertiesMulti = function() {
     dom.inspector.classList.add('active');
-    dom.containerFloorplan.style.width = 'calc(100% - 350px)';
     
     if (selectedItems.length === 0) {
         dom.inspector.classList.remove('active');
-        dom.containerFloorplan.style.width = '100%';
         return;
     }
     
@@ -976,6 +974,7 @@ function showEmptySelectionInspector() {
 
 function closeInspector() {
     selectedItem = null;
+    selectedItems = []; // Clear array when clicking outside
     if (isEditMode) {
         showEmptySelectionInspector();
     } else {
