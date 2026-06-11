@@ -812,7 +812,7 @@ function clearSnapGuides() {
     document.querySelectorAll('.snap-guide-vertical, .snap-guide-horizontal').forEach(el => el.remove());
 }
 
-function calculateSnapAndDrawGuides(targetId, proposedDx, proposedDy, proposedW = null, proposedH = null) {
+function calculateSnapAndDrawGuides(targetId, proposedDx, proposedDy, proposedW = null, proposedH = null, resizeEdges = null) {
     clearSnapGuides();
     
     const cw = dom.canvas.offsetWidth;
@@ -867,6 +867,16 @@ function calculateSnapAndDrawGuides(targetId, proposedDx, proposedDy, proposedW 
         dom.canvas.appendChild(guide);
     }
 
+    let mHEdgesToTry = [];
+    if (!resizeEdges || resizeEdges.left) mHEdgesToTry.push({ val: mLeft, type: 0 });
+    if (!resizeEdges || resizeEdges.right) mHEdgesToTry.push({ val: mRight, type: 1 });
+    if (!resizeEdges) mHEdgesToTry.push({ val: mCenterX, type: 2 });
+
+    let mVEdgesToTry = [];
+    if (!resizeEdges || resizeEdges.top) mVEdgesToTry.push({ val: mTop, type: 0 });
+    if (!resizeEdges || resizeEdges.bottom) mVEdgesToTry.push({ val: mBottom, type: 1 });
+    if (!resizeEdges) mVEdgesToTry.push({ val: mCenterY, type: 2 });
+
     for (const other of allOthers) {
         const oLeft = (other.x / 100) * cw;
         const oRight = ((other.x + other.w) / 100) * cw;
@@ -880,21 +890,20 @@ function calculateSnapAndDrawGuides(targetId, proposedDx, proposedDy, proposedW 
         const dist = Math.hypot(mCenterX - oCenterX, mCenterY - oCenterY);
         if (dist > 250) continue;
         
-        
         if (!snappedX) {
             const hEdges = [oLeft, oRight, oCenterX];
-            const mHEdges = [mLeft, mRight, mCenterX];
             
             for (let oEdge of hEdges) {
-                for (let i = 0; i < mHEdges.length; i++) {
-                    const mEdge = mHEdges[i];
+                for (let i = 0; i < mHEdgesToTry.length; i++) {
+                    const mEdgeObj = mHEdgesToTry[i];
+                    const mEdge = mEdgeObj.val;
                     if (Math.abs(oEdge - mEdge) < SNAP_THRESHOLD) {
                         const diff = oEdge - mEdge;
                         if (proposedW === null) {
                             finalDx += diff;
                         } else {
-                            if (i === 1) finalW += diff; // mudando mRight
-                            else if (i === 0) finalDx += diff; // mudando mLeft
+                            if (mEdgeObj.type === 1) finalW += diff; // mudando mRight
+                            else if (mEdgeObj.type === 0) finalDx += diff; // mudando mLeft
                         }
                         drawVerticalGuide(oEdge);
                         snappedX = true;
@@ -907,18 +916,18 @@ function calculateSnapAndDrawGuides(targetId, proposedDx, proposedDy, proposedW 
         
         if (!snappedY) {
             const vEdges = [oTop, oBottom, oCenterY];
-            const mVEdges = [mTop, mBottom, mCenterY];
             
             for (let oEdge of vEdges) {
-                for (let i = 0; i < mVEdges.length; i++) {
-                    const mEdge = mVEdges[i];
+                for (let i = 0; i < mVEdgesToTry.length; i++) {
+                    const mEdgeObj = mVEdgesToTry[i];
+                    const mEdge = mEdgeObj.val;
                     if (Math.abs(oEdge - mEdge) < SNAP_THRESHOLD) {
                         const diff = oEdge - mEdge;
                         if (proposedH === null) {
                             finalDy += diff;
                         } else {
-                            if (i === 1) finalH += diff; // mudando mBottom
-                            else if (i === 0) finalDy += diff; // mudando mTop
+                            if (mEdgeObj.type === 1) finalH += diff; // mudando mBottom
+                            else if (mEdgeObj.type === 0) finalDy += diff; // mudando mTop
                         }
                         drawHorizontalGuide(oEdge);
                         snappedY = true;
@@ -1033,7 +1042,7 @@ function setupInteractJs() {
                     target.setAttribute('data-raw-w', proposedW);
                     target.setAttribute('data-raw-h', proposedH);
 
-                    const snapped = calculateSnapAndDrawGuides(id, rawDx, rawDy, proposedW, proposedH);
+                    const snapped = calculateSnapAndDrawGuides(id, rawDx, rawDy, proposedW, proposedH, event.edges);
 
                     const wPct = (snapped.w / cw) * 100;
                     const hPct = (snapped.h / ch) * 100;
