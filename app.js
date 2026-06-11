@@ -265,17 +265,35 @@ function attachRotationHandle(el, item) {
     function onMouseMove(e) {
         if (!isRotating) return;
         
-        // A matemática precisa levar em conta o scroll da página
         const dx = e.clientX - centerX;
         const dy = e.clientY - centerY;
         
         let angle = Math.atan2(dy, dx) * (180 / Math.PI);
         angle += 90;
         
-        // Travadinha magnética a cada 90 graus (se estiver a +/- 10 graus de distância)
+        // Travadinha magnética mais sensível (apenas +/- 4 graus de distância)
         const snapAngle = Math.round(angle / 90) * 90;
-        if (Math.abs(angle - snapAngle) <= 10) {
+        clearSnapGuides();
+        
+        if (Math.abs(angle - snapAngle) <= 4) {
             angle = snapAngle;
+            
+            // Desenhar guias em cruz indicando o alinhamento reto
+            const cw = dom.canvas.offsetWidth;
+            const ch = dom.canvas.offsetHeight;
+            const itemCenterX = (item.x / 100) * cw + ((item.w / 100) * cw / 2);
+            const itemCenterY = (item.y / 100) * ch + ((item.h / 100) * ch / 2);
+            
+            const vGuide = document.createElement('div');
+            vGuide.className = 'snap-guide-vertical';
+            vGuide.style.left = `${itemCenterX}px`;
+            
+            const hGuide = document.createElement('div');
+            hGuide.className = 'snap-guide-horizontal';
+            hGuide.style.top = `${itemCenterY}px`;
+            
+            dom.canvas.appendChild(vGuide);
+            dom.canvas.appendChild(hGuide);
         }
         
         el.style.transform = `rotate(${angle}deg)`;
@@ -284,6 +302,7 @@ function attachRotationHandle(el, item) {
 
     function onMouseUp() {
         isRotating = false;
+        clearSnapGuides();
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup', onMouseUp);
         saveData();
