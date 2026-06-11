@@ -152,6 +152,13 @@ function updateCanvasTransform() {
         dom.canvas.style.minWidth = `${w}px`;
         dom.canvas.style.minHeight = `${h}px`;
     }
+    
+    // Toggle Level of Detail (LOD) Rack View when zoomed in sufficiently
+    if (currentZoom >= 3.0) {
+        dom.appContainer.classList.add('lod-active');
+    } else {
+        dom.appContainer.classList.remove('lod-active');
+    }
 }
 
 window.changeZoom = function(delta, focusX = null, focusY = null) {
@@ -363,6 +370,110 @@ function renderFloorPlan() {
         label.textContent = rack.name;
         el.appendChild(label);
         
+        // --- INICIO LOD: VISÃO DETALHADA ---
+        const lodContainer = document.createElement('div');
+        lodContainer.className = 'rack-lod-container';
+        
+        const tabsContainer = document.createElement('div');
+        tabsContainer.className = 'lod-tabs';
+        
+        const contentContainer = document.createElement('div');
+        contentContainer.className = 'lod-content';
+        
+        function renderLODLevel(levelId) {
+            contentContainer.innerHTML = '';
+            const level = rack.levels.find(l => l.id === levelId);
+            
+            if (!level || !level.items || level.items.length === 0) {
+                contentContainer.innerHTML = '<div style="flex:1; display:flex; align-items:center; justify-content:center; color:var(--text-secondary); font-size:0.5rem; text-align:center;">Vazio</div>';
+                return;
+            }
+            
+            level.items.forEach((item, index) => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'lod-item';
+                itemDiv.draggable = true;
+                itemDiv.dataset.index = index;
+                itemDiv.innerHTML = `<strong>${item.sku}</strong>`;
+                itemDiv.title = item.name || '';
+                
+                itemDiv.addEventListener('dragstart', (e) => {
+                    e.stopPropagation();
+                    itemDiv.classList.add('dragging');
+                    e.dataTransfer.setData('text/plain', JSON.stringify({ rackId: rack.id, levelId: levelId, fromIndex: index }));
+                });
+                
+                itemDiv.addEventListener('dragend', () => itemDiv.classList.remove('dragging'));
+                
+                itemDiv.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    itemDiv.classList.add('drag-over');
+                });
+                
+                itemDiv.addEventListener('dragleave', () => itemDiv.classList.remove('drag-over'));
+                
+                itemDiv.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    itemDiv.classList.remove('drag-over');
+                    
+                    try {
+                        const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+                        if (data.rackId === rack.id && data.levelId === levelId) {
+                            if (data.fromIndex !== index) {
+                                const movedItem = level.items.splice(data.fromIndex, 1)[0];
+                                level.items.splice(index, 0, movedItem);
+                                saveData();
+                                renderLODLevel(levelId);
+                                if (!isEditMode && selectedItem === null && document.getElementById(`rack-levels-container`)) {
+                                    openInspector(rack.id); // Refresh sidebar se aberta
+                                }
+                            }
+                        }
+                    } catch (err) { console.error(err); }
+                });
+                
+                contentContainer.appendChild(itemDiv);
+            });
+        }
+        
+        let initialLevelId = null;
+        if (rack.levels && rack.levels.length > 0) {
+            initialLevelId = rack.levels[0].id;
+            
+            rack.levels.forEach((level, idx) => {
+                const tab = document.createElement('div');
+                tab.className = 'lod-tab';
+                if (idx === 0) tab.classList.add('active');
+                
+                let shortName = level.name.split(' ')[0].substring(0,2).toUpperCase();
+                if (level.name.toLowerCase().includes('nivel') || level.name.toLowerCase().includes('nível')) {
+                    const numMatch = level.name.match(/\d+/);
+                    shortName = numMatch ? `N${numMatch[0]}` : 'N';
+                }
+                
+                tab.textContent = shortName;
+                tab.title = level.name;
+                
+                tab.addEventListener('mousedown', (e) => e.stopPropagation());
+                tab.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    tabsContainer.querySelectorAll('.lod-tab').forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    renderLODLevel(level.id);
+                });
+                tabsContainer.appendChild(tab);
+            });
+        }
+        
+        lodContainer.appendChild(tabsContainer);
+        lodContainer.appendChild(contentContainer);
+        if (initialLevelId) renderLODLevel(initialLevelId);
+        
+        contentContainer.addEventListener('mousedown', (e) => e.stopPropagation());
+        el.appendChild(lodContainer);
+        // --- FIM LOD ---
+
         el.addEventListener('mousedown', (e) => {
             if (isEditMode) {
                 openEditorProperties(rack.id, 'rack');
@@ -962,7 +1073,7 @@ function setupInteractJs() {
     interact('.interactable')
         .draggable({
             enabled: false, 
-            ignoreFrom: '.rotate-handle',
+            ignoreFrom: '.rotate-handle, .rack-lod-container',
             listeners: {
                 start(event) { 
                     event.target.classList.add('is-dragging'); 
@@ -1023,7 +1134,7 @@ function setupInteractJs() {
         })
         .resizable({
             enabled: false,
-            ignoreFrom: '.rotate-handle',
+            ignoreFrom: '.rotate-handle, .rack-lod-container',
             margin: 5,
             edges: { left: true, right: true, bottom: true, top: true },
             listeners: {
