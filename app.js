@@ -31,10 +31,52 @@ const defaultWarehouseData = {
 
 let warehouseData = null;
 let isEditMode = false;
-let selectedItem = null; // { item, type }
+let selectedItem = null; // { item, type } - maintained for single selection logic compatibility
+let selectedItems = []; // Array of { item, type }
+let clipboard = []; // Array of copied objects
 let currentZoom = 1.0;
 let panX = 0;
 let panY = 0;
+
+window.handleItemSelection = function(e, item, type, el) {
+    if (e.shiftKey) {
+        const index = selectedItems.findIndex(si => si.item.id === item.id);
+        if (index > -1) {
+            selectedItems.splice(index, 1);
+        } else {
+            selectedItems.push({ item, type });
+        }
+    } else {
+        const exists = selectedItems.find(si => si.item.id === item.id);
+        if (!exists) {
+            selectedItems = [{ item, type }];
+        }
+    }
+    
+    // Fallback for single selection logic in older parts of the code
+    selectedItem = selectedItems.length > 0 ? selectedItems[0] : null;
+    
+    openEditorPropertiesMulti();
+    
+    // Highlight da UI no canvas
+    document.querySelectorAll('.rack, .aisle').forEach(r => {
+        r.style.borderColor = 'var(--border-color)';
+        r.style.boxShadow = 'var(--shadow-md)';
+    });
+    
+    selectedItems.forEach(si => {
+        const targetEl = document.querySelector(`.${si.type}[data-id="${si.item.id}"]`);
+        if (targetEl) {
+            targetEl.style.borderColor = 'var(--accent-warning)';
+            targetEl.style.boxShadow = '0 0 15px rgba(245, 158, 11, 0.5)';
+        }
+    });
+
+    document.querySelectorAll('.rotate-handle').forEach(h => h.remove());
+    if (selectedItems.length === 1) {
+        attachRotationHandle(document.querySelector(`.${selectedItems[0].type}[data-id="${selectedItems[0].item.id}"]`), selectedItems[0].item, selectedItems[0].type);
+    }
+};
 
 const dom = {
     canvas: document.getElementById('warehouse-canvas'),
@@ -343,10 +385,7 @@ function renderFloorPlan() {
         
         el.addEventListener('mousedown', (e) => {
             if (isEditMode) {
-                openEditorProperties(aisle.id, 'aisle');
-                // Adiciona a alça dinamicamente sem recriar a DOM inteira
-                document.querySelectorAll('.rotate-handle').forEach(h => h.remove());
-                attachRotationHandle(el, aisle);
+                handleItemSelection(e, aisle, 'aisle', el);
             }
         });
         
@@ -480,12 +519,7 @@ function renderFloorPlan() {
 
         el.addEventListener('mousedown', (e) => {
             if (isEditMode) {
-                openEditorProperties(rack.id, 'rack');
-                const existingHandle = el.querySelector('.rotate-handle');
-                if (!existingHandle) {
-                    document.querySelectorAll('.rotate-handle').forEach(h => h.remove());
-                    attachRotationHandle(el, rack, 'rack');
-                }
+                handleItemSelection(e, rack, 'rack', el);
             }
         });
         
@@ -565,25 +599,44 @@ function findParentAisleForRack(rack) {
 }
 
 // === PAINEL DE EDIÇÃO (PROPRIEDADES) ===
-function openEditorProperties(id, type) {
-    // Remove highlight das outras (mesmo padrão do modo leitura)
-    document.querySelectorAll('.rack, .aisle').forEach(r => {
-        r.style.borderColor = 'var(--border-color)';
-        r.style.boxShadow = 'var(--shadow-md)';
-    });
+window.openEditorPropertiesMulti = function() {
+    dom.inspector.classList.add('active');
+    dom.containerFloorplan.style.width = 'calc(100% - 350px)';
     
-    // Highlight da selecionada com cor laranja (accent-warning) no modo edição
-    const activeEl = document.querySelector(`.${type}[data-id="${id}"]`);
-    if (activeEl) {
-        activeEl.style.borderColor = 'var(--accent-warning)';
-        activeEl.style.boxShadow = '0 0 15px rgba(245, 158, 11, 0.5)';
+    if (selectedItems.length === 0) {
+        dom.inspector.classList.remove('active');
+        dom.containerFloorplan.style.width = '100%';
+        return;
     }
+    
+    if (selectedItems.length === 1) {
+        openEditorProperties(selectedItems[0].item.id, selectedItems[0].type);
+        return;
+    }
+    
+    // Multiple selection mode
+    dom.inspector.querySelector('.inspector-header h2').textContent = `Múltiplos Selecionados (${selectedItems.length})`;
+    
+    dom.inspectorContent.innerHTML = `
+        <div class="level-card" style="text-align: center; color: var(--text-secondary);">
+            <p style="margin-bottom: 1rem;"><i class="fa-solid fa-layer-group" style="font-size: 2rem; margin-bottom: 0.5rem; display:block;"></i></p>
+            <p>Vários itens estão selecionados.</p>
+            <p style="font-size: 0.8rem; margin-top: 0.5rem;">Use <strong>Ctrl+C</strong> / <strong>Ctrl+V</strong> para copiar/colar ou <strong>Delete</strong> para apagar todos os itens selecionados.</p>
+            <button class="btn" id="btn-delete-multi" style="width:100%; margin-top: 1rem; background:var(--accent-danger); color:white;">
+                <i class="fa-solid fa-trash"></i> Excluir Todos
+            </button>
+        </div>
+    `;
+    
+    document.getElementById('btn-delete-multi').addEventListener('click', () => {
+        window.deleteSelectedItems();
+    });
+};
 
+function openEditorProperties(id, type) {
     const list = type === 'aisle' ? warehouseData.aisles : warehouseData.racks;
     const item = list.find(i => i.id === id);
     if (!item) return;
-    
-    selectedItem = { item, type };
     
     dom.inspector.querySelector('.inspector-header h2').textContent = `Editar ${type === 'aisle' ? 'Corredor' : 'Estante'}`;
     
@@ -1082,9 +1135,23 @@ function setupInteractJs() {
             ignoreFrom: '.rotate-handle, .rack-lod-container',
             listeners: {
                 start(event) { 
-                    event.target.classList.add('is-dragging'); 
-                    event.target.setAttribute('data-raw-dx', event.target.getAttribute('data-dx') || 0);
-                    event.target.setAttribute('data-raw-dy', event.target.getAttribute('data-dy') || 0);
+                    const id = event.target.dataset.id;
+                    const type = event.target.dataset.type;
+                    const exists = selectedItems.find(si => si.item.id === id);
+                    if (!exists) {
+                        const list = type === 'aisle' ? warehouseData.aisles : warehouseData.racks;
+                        const item = list.find(i => i.id === id);
+                        handleItemSelection({shiftKey: false}, item, type, event.target);
+                    }
+                    
+                    selectedItems.forEach(si => {
+                        const el = document.querySelector(`.${si.type}[data-id="${si.item.id}"]`);
+                        if (el) {
+                            el.classList.add('is-dragging'); 
+                            el.setAttribute('data-raw-dx', el.getAttribute('data-dx') || 0);
+                            el.setAttribute('data-raw-dy', el.getAttribute('data-dy') || 0);
+                        }
+                    });
                 },
                 move(event) {
                     const target = event.target;
@@ -1102,9 +1169,15 @@ function setupInteractJs() {
 
                     const snapped = calculateSnapAndDrawGuides(id, rawX, rawY);
 
-                    target.style.transform = `translate(${snapped.dx}px, ${snapped.dy}px) rotate(${rot}deg)`;
-                    target.setAttribute('data-dx', snapped.dx);
-                    target.setAttribute('data-dy', snapped.dy);
+                    selectedItems.forEach(si => {
+                        const el = document.querySelector(`.${si.type}[data-id="${si.item.id}"]`);
+                        if (el) {
+                            const r = si.item.rotation || 0;
+                            el.style.transform = `translate(${snapped.dx}px, ${snapped.dy}px) rotate(${r}deg)`;
+                            el.setAttribute('data-dx', snapped.dx);
+                            el.setAttribute('data-dy', snapped.dy);
+                        }
+                    });
                 },
                 end(event) {
                     const target = event.target;
@@ -1112,27 +1185,28 @@ function setupInteractJs() {
                     
                     const cw = dom.canvas.offsetWidth;
                     const ch = dom.canvas.offsetHeight;
-                    const dxPix = parseFloat(target.getAttribute('data-dx')) || 0;
-                    const dyPix = parseFloat(target.getAttribute('data-dy')) || 0;
                     
-                    const dxPct = (dxPix / cw) * 100;
-                    const dyPct = (dyPix / ch) * 100;
-                    
-                    const id = target.dataset.id;
-                    const type = target.dataset.type;
-                    const list = type === 'aisle' ? warehouseData.aisles : warehouseData.racks;
-                    const item = list.find(i => i.id === id);
-                    
-                    if (item) {
-                        item.x += dxPct;
-                        item.y += dyPct;
-                    }
+                    selectedItems.forEach(si => {
+                        const el = document.querySelector(`.${si.type}[data-id="${si.item.id}"]`);
+                        if (el) {
+                            el.classList.remove('is-dragging');
+                            const dxPix = parseFloat(el.getAttribute('data-dx')) || 0;
+                            const dyPix = parseFloat(el.getAttribute('data-dy')) || 0;
+                            
+                            const dxPctMulti = (dxPix / cw) * 100;
+                            const dyPctMulti = (dyPix / ch) * 100;
+                            
+                            si.item.x += dxPctMulti;
+                            si.item.y += dyPctMulti;
+                            
+                            el.setAttribute('data-dx', 0);
+                            el.setAttribute('data-dy', 0);
+                            el.setAttribute('data-raw-dx', 0);
+                            el.setAttribute('data-raw-dy', 0);
+                        }
+                    });
                     
                     saveData();
-                    target.setAttribute('data-dx', 0);
-                    target.setAttribute('data-dy', 0);
-                    target.setAttribute('data-raw-dx', 0);
-                    target.setAttribute('data-raw-dy', 0);
                     clearSnapGuides();
                     renderFloorPlan(); 
                 }
@@ -1249,8 +1323,107 @@ function setupInteractJs() {
     });
 }
 
+window.deleteSelectedItems = async function() {
+    if (!isEditMode || selectedItems.length === 0) return;
+    if (confirm(`Tem certeza que deseja excluir ${selectedItems.length} item(ns)? Isso apagará todo o conteúdo associado a eles.`)) {
+        for (const si of selectedItems) {
+            const list = si.type === 'aisle' ? warehouseData.aisles : warehouseData.racks;
+            const idx = list.findIndex(i => i.id === si.item.id);
+            if (idx !== -1) {
+                // If it's a rack, unsync all products from Olist
+                if (si.type === 'rack' && si.item.levels) {
+                    for (const level of si.item.levels) {
+                        if (level.items) {
+                            for (const product of level.items) {
+                                if (product.olistId || window.getOlistIdForSKU(product.sku)) {
+                                    await window.syncLocationToOlist(product.sku, null); // Unsync logic will remove location because it's deleted
+                                }
+                            }
+                        }
+                    }
+                }
+                list.splice(idx, 1);
+            }
+        }
+        selectedItems = [];
+        selectedItem = null;
+        closeInspector();
+        saveData();
+        renderFloorPlan();
+    }
+};
+
+function handleKeyboardShortcuts(e) {
+    if (!isEditMode) return;
+    
+    // Ignore se estiver digitando em um input
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    
+    // Delete
+    if (e.key === 'Delete' || e.key === 'Del') {
+        if (selectedItems.length > 0) {
+            window.deleteSelectedItems();
+        }
+    }
+    
+    // Ctrl+C (Copiar)
+    if (e.ctrlKey && (e.key === 'c' || e.key === 'C')) {
+        if (selectedItems.length > 0) {
+            clipboard = selectedItems.map(si => {
+                // Copia profunda da estrutura básica (sem produtos)
+                return {
+                    type: si.type,
+                    item: {
+                        name: si.item.name + ' (Cópia)',
+                        w: si.item.w,
+                        h: si.item.h,
+                        x: si.item.x,
+                        y: si.item.y,
+                        rotation: si.item.rotation || 0,
+                        // Para racks, cria apenas 1 nível N1 vazio. Para aisles, sem níveis.
+                        levels: si.type === 'rack' ? [{ id: Date.now().toString() + Math.random().toString(36).substring(2, 6), name: 'Nível 1 (Chão)', capacity: 1000, currentLoad: 0, items: [] }] : undefined
+                    }
+                };
+            });
+            console.log("Copiado!", clipboard.length, "itens");
+        }
+    }
+    
+    // Ctrl+V (Colar)
+    if (e.ctrlKey && (e.key === 'v' || e.key === 'V')) {
+        if (clipboard.length > 0) {
+            // Desmarca os anteriores
+            selectedItems = [];
+            
+            clipboard.forEach((clip, index) => {
+                const newItem = JSON.parse(JSON.stringify(clip.item));
+                // Gera novo ID
+                newItem.id = clip.type + '-' + Date.now() + Math.random().toString(36).substring(2, 6);
+                // Offset visual de 2% para baixo e direita para dar feedback visual de que colou
+                newItem.x = newItem.x + 2;
+                newItem.y = newItem.y + 2;
+                
+                if (clip.type === 'aisle') {
+                    warehouseData.aisles.push(newItem);
+                } else {
+                    warehouseData.racks.push(newItem);
+                }
+                
+                // Seleciona as novas coladas
+                selectedItems.push({ type: clip.type, item: newItem });
+            });
+            
+            selectedItem = selectedItems[0];
+            openEditorPropertiesMulti();
+            saveData();
+            renderFloorPlan();
+        }
+    }
+}
+
 // Configuração de Eventos
 function setupEventListeners() {
+    window.addEventListener('keydown', handleKeyboardShortcuts);
     dom.btnEditMode.addEventListener('click', toggleEditMode);
     dom.btnAddAisle.addEventListener('click', addAisle);
     dom.btnAddRack.addEventListener('click', addRack);
