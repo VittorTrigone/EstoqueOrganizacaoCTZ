@@ -1036,6 +1036,25 @@ function setupInteractJs() {
     dom.btnEditMode.addEventListener('click', () => {
         interact('.interactable').draggable({ enabled: isEditMode });
         interact('.interactable').resizable({ enabled: isEditMode });
+        interact('.rack-inspector').resizable({ enabled: isEditMode });
+    });
+
+    interact('.rack-inspector').resizable({
+        enabled: false,
+        edges: { left: true },
+        modifiers: [
+            interact.modifiers.restrictSize({
+                min: { width: 350 },
+                max: { width: 600 }
+            })
+        ],
+        listeners: {
+            move: function (event) {
+                Object.assign(event.target.style, {
+                    width: `${event.rect.width}px`
+                });
+            }
+        }
     });
 }
 
