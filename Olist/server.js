@@ -150,6 +150,15 @@ app.get('/api/produtos', (req, res) => {
     res.json({ itens: resultados });
 });
 
+app.post('/api/produtos/batch', (req, res) => {
+    const skus = req.body.skus || [];
+    if (!Array.isArray(skus) || skus.length === 0) {
+        return res.json({ itens: [] });
+    }
+    const resultados = catalogoEmMemoria.filter(p => skus.includes(p.sku));
+    res.json({ itens: resultados });
+});
+
 app.put('/api/produtos/:id/localizacao', async (req, res) => {
     const idProduto = req.params.id;
     const novaLocalizacao = req.body.localizacao;

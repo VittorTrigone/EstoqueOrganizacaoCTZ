@@ -1228,6 +1228,9 @@ function renderItemList(filterText = '') {
                     <i class="fa-solid fa-pen"></i>
                 </button>
             </td>
+            <td style="padding: 1rem; border-bottom: 1px solid var(--border-color); font-weight: bold;" id="estoque-col-${sku}">
+                <i class="fa-solid fa-spinner fa-spin" style="color: var(--text-secondary)"></i>
+            </td>
             <td style="padding: 1rem; border-bottom: 1px solid var(--border-color); color: var(--accent-success); font-weight: 500;">${locationStr || 'Sem Localização'}</td>
             <td style="padding: 1rem; border-bottom: 1px solid var(--border-color);">
                 <button class="btn btn-primary btn-small" onclick="window.locateSKU('${sku}')">
@@ -1242,7 +1245,52 @@ function renderItemList(filterText = '') {
     });
     
     if (!hasItems) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 2rem;">Nenhum item encontrado.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 2rem;">Nenhum item encontrado.</td></tr>';
+    } else {
+        // Fetch stock for all items
+        const allSkus = Object.keys(skuMap);
+        fetch(`${API_BASE_URL}/api/produtos/batch`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ skus: allSkus })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.itens && data.itens.length > 0) {
+                data.itens.forEach(produto => {
+                    const el = document.getElementById(`estoque-col-${produto.sku}`);
+                    if (el) {
+                        // Tiny pode retornar em produto.estoque.saldo, produto.estoque.saldoFisico, ou produto.saldo
+                        let saldo = '0';
+                        if (produto.estoque && produto.estoque.saldo !== undefined) saldo = produto.estoque.saldo;
+                        else if (produto.estoque && produto.estoque.saldoFisico !== undefined) saldo = produto.estoque.saldoFisico;
+                        else if (produto.saldo !== undefined) saldo = produto.saldo;
+                        
+                        el.innerText = saldo;
+                        if (Number(saldo) === 0) {
+                            el.style.color = 'var(--accent-danger)';
+                        } else {
+                            el.style.color = 'var(--text-primary)';
+                        }
+                    }
+                });
+            }
+            // Para skus que não vieram, setar N/A
+            allSkus.forEach(sku => {
+                const el = document.getElementById(`estoque-col-${sku}`);
+                if (el && el.innerHTML.includes('fa-spinner')) {
+                    el.innerText = 'N/A';
+                    el.style.color = 'var(--text-secondary)';
+                }
+            });
+        })
+        .catch(err => {
+            console.error('Erro ao buscar estoque:', err);
+            allSkus.forEach(sku => {
+                const el = document.getElementById(`estoque-col-${sku}`);
+                if (el) el.innerText = 'Erro';
+            });
+        });
     }
 }
 
