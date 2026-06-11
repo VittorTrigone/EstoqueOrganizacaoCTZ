@@ -269,9 +269,14 @@ function attachRotationHandle(el, item) {
         const dx = e.clientX - centerX;
         const dy = e.clientY - centerY;
         
-        // Math.atan2 te dá o ângulo. Somamos 90 pois a alça fica no topo (12h)
         let angle = Math.atan2(dy, dx) * (180 / Math.PI);
         angle += 90;
+        
+        // Travadinha magnética a cada 90 graus (se estiver a +/- 10 graus de distância)
+        const snapAngle = Math.round(angle / 90) * 90;
+        if (Math.abs(angle - snapAngle) <= 10) {
+            angle = snapAngle;
+        }
         
         el.style.transform = `rotate(${angle}deg)`;
         item.rotation = angle;
