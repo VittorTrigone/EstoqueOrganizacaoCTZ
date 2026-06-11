@@ -228,6 +228,11 @@ h1, h2, h3 {
 }
 
 /* Aisles and Racks Styling (Absolute Spatial) */
+.interactable {
+    user-select: none;
+    -webkit-user-select: none;
+}
+
 .aisle {
     position: absolute;
     background-color: rgba(51, 65, 85, 0.2);
