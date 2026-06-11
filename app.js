@@ -399,14 +399,6 @@ function renderFloorPlan() {
                 const displayText = item.name || item.sku;
                 itemDiv.innerHTML = `<strong>${displayText}</strong>`;
                 
-                if (level.items.length <= 2) {
-                    itemDiv.style.fontSize = '0.70rem';
-                } else if (level.items.length <= 4) {
-                    itemDiv.style.fontSize = '0.55rem';
-                } else {
-                    itemDiv.style.fontSize = '0.45rem';
-                }
-                
                 itemDiv.title = item.name || '';
                 
                 itemDiv.addEventListener('dragstart', (e) => {
