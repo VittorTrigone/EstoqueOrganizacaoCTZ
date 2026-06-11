@@ -154,7 +154,7 @@ function updateCanvasTransform() {
     }
     
     // Toggle Level of Detail (LOD) Rack View when zoomed in sufficiently
-    if (currentZoom >= 3.0) {
+    if (currentZoom >= 1.5) {
         dom.appContainer.classList.add('lod-active');
     } else {
         dom.appContainer.classList.remove('lod-active');
