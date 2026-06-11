@@ -175,10 +175,13 @@ app.post('/api/produtos/batch', async (req, res) => {
     if (!Array.isArray(skus) || skus.length === 0) {
         return res.json({ itens: [] });
     }
-    const resultados = catalogoEmMemoria.filter(p => skus.includes(p.sku));
+    
+    // Filtra apenas ativos, senão SKUs duplicados e excluídos vão sobrescrever o estoque real no front
+    const produtosAtivos = catalogoEmMemoria.filter(p => !p.situacao || p.situacao === 'A');
+    const resultados = produtosAtivos.filter(p => skus.includes(p.sku));
     
     let config = await lerConfig();
-    if (!config.access_token) {
+    if (!config || !config.access_token) {
         return res.json({ itens: resultados });
     }
 
