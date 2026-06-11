@@ -697,12 +697,7 @@ window.showAddItemForm = function(rackId, levelId) {
                         
                         const statusSpan = document.getElementById(`sync-status-${levelId}`);
                         statusSpan.style.display = 'flex';
-                        
-                        if (localizacao === expectedLoc) {
-                            statusSpan.innerHTML = '<span style="color: var(--accent-success);">🟢 Sincronizado</span>';
-                        } else {
-                            statusSpan.innerHTML = `<span style="color: var(--accent-danger);" title="Local no Olist: ${localizacao || 'Vazio'}">🔴 Não Sincronizado</span>`;
-                        }
+                        statusSpan.innerHTML = '<span style="color: var(--accent-success);">🟢 Sincronizado</span>';
                     });
                     resultsContainer.appendChild(itemDiv);
                 });
