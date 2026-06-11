@@ -604,7 +604,7 @@ window.showAddItemForm = function(rackId, levelId) {
         <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color); margin-top: 0.5rem; position: relative;">
             <div style="margin-bottom: 0.75rem; position: relative;">
                 <label style="display:block; font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.25rem;">Buscar no Olist/Tiny</label>
-                <input type="text" id="search-olist-${levelId}" placeholder="Digite Nome ou SKU..." autocomplete="off" style="width:100%; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--accent-primary); background: var(--bg-base); color: var(--text-primary);">
+                <input type="text" id="search-olist-${levelId}" placeholder="Digite Nome ou SKU..." autocomplete="off" style="width:100%; min-width:0; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--accent-primary); background: var(--bg-base); color: var(--text-primary);">
                 <div id="search-results-${levelId}" class="olist-search-results hidden"></div>
             </div>
             
@@ -613,15 +613,15 @@ window.showAddItemForm = function(rackId, levelId) {
                     Código SKU
                     <span id="sync-status-${levelId}" style="display:none; align-items:center; gap:4px; font-weight:bold;"></span>
                 </label>
-                <input type="text" id="new-sku-${levelId}" placeholder="Selecione na busca acima" readonly style="width:100%; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.5); color: var(--text-secondary); opacity: 0.8;">
+                <input type="text" id="new-sku-${levelId}" placeholder="Selecione na busca acima" readonly style="width:100%; min-width:0; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.5); color: var(--text-secondary); opacity: 0.8;">
             </div>
             <div style="margin-bottom: 1rem;">
                 <label style="display:block; font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.25rem;">Nome / Descrição do Produto</label>
-                <input type="text" id="new-name-${levelId}" placeholder="Preenchido automaticamente" style="width:100%; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-base); color: var(--text-primary);">
+                <input type="text" id="new-name-${levelId}" placeholder="Preenchido automaticamente" style="width:100%; min-width:0; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-base); color: var(--text-primary);">
             </div>
-            <div style="display: flex; gap: 0.5rem;">
-                <button class="btn btn-primary" onclick="window.submitNewItem('${rackId}', '${levelId}')" style="flex: 1; justify-content: center;">Salvar</button>
-                <button class="btn btn-secondary" onclick="openInspector('${rackId}')" style="flex: 1; justify-content: center;">Cancelar</button>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <button class="btn btn-primary" onclick="window.submitNewItem('${rackId}', '${levelId}')" style="flex: 1; min-width: 120px; justify-content: center; padding: 0.5rem;">Salvar</button>
+                <button class="btn btn-secondary" onclick="openInspector('${rackId}')" style="flex: 1; min-width: 120px; justify-content: center; padding: 0.5rem;">Cancelar</button>
             </div>
         </div>
     `;
@@ -1369,7 +1369,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Verifica se já está logado na sessão atual do navegador
     if (sessionStorage.getItem('estoquepro_auth') === 'true') {
-        lockOverlay.classList.add('hidden');
+        lockOverlay.remove();
         init();
     } else {
         // Exibe a tela de login (já está visível por padrão no HTML, apenas garante)
@@ -1392,7 +1392,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (data === true) {
                     // Senha Correta
                     sessionStorage.setItem('estoquepro_auth', 'true');
-                    lockOverlay.classList.add('hidden');
+                    lockOverlay.remove();
                     init(); // Inicia o sistema
                 } else {
                     // Senha Incorreta
