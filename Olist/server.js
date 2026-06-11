@@ -170,7 +170,8 @@ app.post('/api/produtos/batch', async (req, res) => {
     for (const prod of resultados) {
         let saldo_real = 0;
         try {
-            const url = `https://erp.tiny.com.br/public-api/v3/produtos/${prod.id}`;
+            // Buscando especificamente no endpoint de ESTOQUE do produto
+            const url = `https://erp.tiny.com.br/public-api/v3/estoque/produto/${prod.id}`;
             let resposta = await fetch(url, { headers: { 'Authorization': `Bearer ${config.access_token}` } });
             
             if (resposta.status === 401) {
@@ -185,7 +186,8 @@ app.post('/api/produtos/batch', async (req, res) => {
 
             if (resposta.ok) {
                 const detalhes = await resposta.json();
-                saldo_real = detalhes.saldo !== undefined ? detalhes.saldo : 0;
+                // O usuario pediu o estoque DISPONÍVEL
+                saldo_real = detalhes.disponivel !== undefined ? detalhes.disponivel : 0;
             }
         } catch(e) {
             console.error(`Erro ao buscar saldo do produto ${prod.id}:`, e);
