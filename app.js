@@ -740,7 +740,7 @@ window.submitNewItem = async function(rackId, levelId) {
     const parentAisle = findParentAisleForRack(rack);
     
     // Verificação para impedir produto duplicado no mesmo nível
-    if (level.items && level.items.some(item => item.sku === sku)) {
+    if (level.items && level.items.some(item => item.sku.toLowerCase() === sku.toLowerCase())) {
         alert("Este produto já está adicionado neste mesmo nível da estante.");
         return;
     }
