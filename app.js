@@ -451,6 +451,19 @@ function findParentAisleForRack(rack) {
 
 // === PAINEL DE EDIÇÃO (PROPRIEDADES) ===
 function openEditorProperties(id, type) {
+    // Remove highlight das outras (mesmo padrão do modo leitura)
+    document.querySelectorAll('.rack, .aisle').forEach(r => {
+        r.style.borderColor = 'var(--border-color)';
+        r.style.boxShadow = 'var(--shadow-md)';
+    });
+    
+    // Highlight da selecionada com cor laranja (accent-warning) no modo edição
+    const activeEl = document.querySelector(`.${type}[data-id="${id}"]`);
+    if (activeEl) {
+        activeEl.style.borderColor = 'var(--accent-warning)';
+        activeEl.style.boxShadow = '0 0 15px rgba(245, 158, 11, 0.5)';
+    }
+
     const list = type === 'aisle' ? warehouseData.aisles : warehouseData.racks;
     const item = list.find(i => i.id === id);
     if (!item) return;
