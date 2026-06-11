@@ -136,15 +136,19 @@ app.get('/api/debug-produto', (req, res) => {
 });
 
 app.get('/api/debug-estoque/:id', async (req, res) => {
-    let config = await lerConfig();
-    const url = `https://erp.tiny.com.br/public-api/v3/estoque/${req.params.id}`;
-    let resposta = await fetch(url, { headers: { 'Authorization': `Bearer ${config.access_token}` } });
-    if (resposta.status === 401) {
-        config.access_token = await renovarToken();
-        resposta = await fetch(url, { headers: { 'Authorization': `Bearer ${config.access_token}` } });
+    try {
+        let config = await lerConfig();
+        const url = `https://erp.tiny.com.br/public-api/v3/estoque/${req.params.id}`;
+        let resposta = await fetch(url, { headers: { 'Authorization': `Bearer ${config.access_token}` } });
+        if (resposta.status === 401) {
+            config.access_token = await renovarToken();
+            resposta = await fetch(url, { headers: { 'Authorization': `Bearer ${config.access_token}` } });
+        }
+        const text = await resposta.text();
+        res.json({ status: resposta.status, body: text });
+    } catch(e) {
+        res.json({ error: e.message });
     }
-    const detalhes = await resposta.json();
-    res.json(detalhes);
 });
 
 app.get('/api/produtos', (req, res) => {
