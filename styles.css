@@ -598,3 +598,26 @@ body.light-mode {
     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
     --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.05);
 }
+
+/* Snap Guides (Smart Guides) */
+.snap-guide-vertical {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background-color: #ff00ff; /* Magenta style Photoshop */
+    z-index: 9999;
+    pointer-events: none;
+    box-shadow: 0 0 4px #ff00ff;
+}
+
+.snap-guide-horizontal {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background-color: #ff00ff; /* Magenta style Photoshop */
+    z-index: 9999;
+    pointer-events: none;
+    box-shadow: 0 0 4px #ff00ff;
+}

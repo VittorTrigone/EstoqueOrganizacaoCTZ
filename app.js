@@ -756,6 +756,130 @@ function closeInspector() {
     if (isEditMode) renderFloorPlan(); // Remove alça se tiver deselecionado
 }
 
+// === SMART GUIDES (SNAPPING) ===
+const SNAP_THRESHOLD = 8; // pixels
+
+function clearSnapGuides() {
+    document.querySelectorAll('.snap-guide-vertical, .snap-guide-horizontal').forEach(el => el.remove());
+}
+
+function calculateSnapAndDrawGuides(targetId, proposedDx, proposedDy, proposedW = null, proposedH = null) {
+    clearSnapGuides();
+    
+    const cw = dom.canvas.offsetWidth;
+    const ch = dom.canvas.offsetHeight;
+    
+    let movingItem = null;
+    if (warehouseData.aisles.some(i => i.id === targetId)) {
+        movingItem = warehouseData.aisles.find(i => i.id === targetId);
+    } else {
+        movingItem = warehouseData.racks.find(i => i.id === targetId);
+    }
+    
+    if (!movingItem) return { dx: proposedDx, dy: proposedDy, w: proposedW, h: proposedH };
+
+    const dxPct = (proposedDx / cw) * 100;
+    const dyPct = (proposedDy / ch) * 100;
+    
+    const currX = movingItem.x + dxPct;
+    const currY = movingItem.y + dyPct;
+    const currW = proposedW !== null ? (proposedW / cw) * 100 : movingItem.w;
+    const currH = proposedH !== null ? (proposedH / ch) * 100 : movingItem.h;
+    
+    const mLeft = (currX / 100) * cw;
+    const mRight = ((currX + currW) / 100) * cw;
+    const mCenterX = mLeft + ((currW / 100) * cw / 2);
+    
+    const mTop = (currY / 100) * ch;
+    const mBottom = ((currY + currH) / 100) * ch;
+    const mCenterY = mTop + ((currH / 100) * ch / 2);
+    
+    const allOthers = [...warehouseData.aisles, ...warehouseData.racks].filter(i => i.id !== targetId);
+    
+    let finalDx = proposedDx;
+    let finalDy = proposedDy;
+    let finalW = proposedW;
+    let finalH = proposedH;
+    
+    let snappedX = false;
+    let snappedY = false;
+
+    function drawVerticalGuide(xPix) {
+        const guide = document.createElement('div');
+        guide.className = 'snap-guide-vertical';
+        guide.style.left = `${xPix}px`;
+        dom.canvas.appendChild(guide);
+    }
+    
+    function drawHorizontalGuide(yPix) {
+        const guide = document.createElement('div');
+        guide.className = 'snap-guide-horizontal';
+        guide.style.top = `${yPix}px`;
+        dom.canvas.appendChild(guide);
+    }
+
+    for (const other of allOthers) {
+        const oLeft = (other.x / 100) * cw;
+        const oRight = ((other.x + other.w) / 100) * cw;
+        const oCenterX = oLeft + ((other.w / 100) * cw / 2);
+        
+        const oTop = (other.y / 100) * ch;
+        const oBottom = ((other.y + other.h) / 100) * ch;
+        const oCenterY = oTop + ((other.h / 100) * ch / 2);
+        
+        if (!snappedX) {
+            const hEdges = [oLeft, oRight, oCenterX];
+            const mHEdges = [mLeft, mRight, mCenterX];
+            
+            for (let oEdge of hEdges) {
+                for (let i = 0; i < mHEdges.length; i++) {
+                    const mEdge = mHEdges[i];
+                    if (Math.abs(oEdge - mEdge) < SNAP_THRESHOLD) {
+                        const diff = oEdge - mEdge;
+                        if (proposedW === null) {
+                            finalDx += diff;
+                        } else {
+                            if (i === 1) finalW += diff; // mudando mRight
+                            else if (i === 0) finalDx += diff; // mudando mLeft
+                        }
+                        drawVerticalGuide(oEdge);
+                        snappedX = true;
+                        break;
+                    }
+                }
+                if (snappedX) break;
+            }
+        }
+        
+        if (!snappedY) {
+            const vEdges = [oTop, oBottom, oCenterY];
+            const mVEdges = [mTop, mBottom, mCenterY];
+            
+            for (let oEdge of vEdges) {
+                for (let i = 0; i < mVEdges.length; i++) {
+                    const mEdge = mVEdges[i];
+                    if (Math.abs(oEdge - mEdge) < SNAP_THRESHOLD) {
+                        const diff = oEdge - mEdge;
+                        if (proposedH === null) {
+                            finalDy += diff;
+                        } else {
+                            if (i === 1) finalH += diff; // mudando mBottom
+                            else if (i === 0) finalDy += diff; // mudando mTop
+                        }
+                        drawHorizontalGuide(oEdge);
+                        snappedY = true;
+                        break;
+                    }
+                }
+                if (snappedY) break;
+            }
+        }
+        if (snappedX && snappedY) break;
+    }
+    
+    return { dx: finalDx, dy: finalDy, w: finalW, h: finalH };
+}
+
 // === INTERACT.JS (ARRASTAR EM PORCENTAGEM) ===
 function setupInteractJs() {
     interact('.interactable')
@@ -763,7 +887,11 @@ function setupInteractJs() {
             enabled: false, 
             ignoreFrom: '.rotate-handle',
             listeners: {
-                start(event) { event.target.classList.add('is-dragging'); },
+                start(event) { 
+                    event.target.classList.add('is-dragging'); 
+                    event.target.setAttribute('data-raw-dx', event.target.getAttribute('data-dx') || 0);
+                    event.target.setAttribute('data-raw-dy', event.target.getAttribute('data-dy') || 0);
+                },
                 move(event) {
                     const target = event.target;
                     const type = target.dataset.type;
@@ -772,12 +900,17 @@ function setupInteractJs() {
                     const item = list.find(i => i.id === id);
                     const rot = item ? (item.rotation || 0) : 0;
                     
-                    const x = (parseFloat(target.getAttribute('data-dx')) || 0) + event.dx;
-                    const y = (parseFloat(target.getAttribute('data-dy')) || 0) + event.dy;
+                    const rawX = (parseFloat(target.getAttribute('data-raw-dx')) || 0) + event.dx;
+                    const rawY = (parseFloat(target.getAttribute('data-raw-dy')) || 0) + event.dy;
+                    
+                    target.setAttribute('data-raw-dx', rawX);
+                    target.setAttribute('data-raw-dy', rawY);
 
-                    target.style.transform = `translate(${x}px, ${y}px) rotate(${rot}deg)`;
-                    target.setAttribute('data-dx', x);
-                    target.setAttribute('data-dy', y);
+                    const snapped = calculateSnapAndDrawGuides(id, rawX, rawY);
+
+                    target.style.transform = `translate(${snapped.dx}px, ${snapped.dy}px) rotate(${rot}deg)`;
+                    target.setAttribute('data-dx', snapped.dx);
+                    target.setAttribute('data-dy', snapped.dy);
                 },
                 end(event) {
                     const target = event.target;
@@ -804,6 +937,9 @@ function setupInteractJs() {
                     saveData();
                     target.setAttribute('data-dx', 0);
                     target.setAttribute('data-dy', 0);
+                    target.setAttribute('data-raw-dx', 0);
+                    target.setAttribute('data-raw-dy', 0);
+                    clearSnapGuides();
                     renderFloorPlan(); 
                 }
             }
@@ -813,37 +949,48 @@ function setupInteractJs() {
             ignoreFrom: '.rotate-handle',
             edges: { left: true, right: true, bottom: true, top: true },
             listeners: {
+                start(event) { 
+                    event.target.setAttribute('data-raw-dx', event.target.getAttribute('data-dx') || 0);
+                    event.target.setAttribute('data-raw-dy', event.target.getAttribute('data-dy') || 0);
+                    event.target.setAttribute('data-raw-w', event.rect.width);
+                    event.target.setAttribute('data-raw-h', event.rect.height);
+                },
                 move(event) {
                     const target = event.target;
                     const cw = dom.canvas.offsetWidth;
                     const ch = dom.canvas.offsetHeight;
                     
-                    const dxPct = (event.deltaRect.left / cw) * 100;
-                    const dyPct = (event.deltaRect.top / ch) * 100;
-                    const wPct = (event.rect.width / cw) * 100;
-                    const hPct = (event.rect.height / ch) * 100;
+                    const id = target.dataset.id;
+                    const type = target.dataset.type;
+                    const list = type === 'aisle' ? warehouseData.aisles : warehouseData.racks;
+                    const item = list.find(i => i.id === id);
+                    const rot = item ? (item.rotation || 0) : 0;
+                    
+                    const rawDx = (parseFloat(target.getAttribute('data-raw-dx')) || 0) + event.deltaRect.left;
+                    const rawDy = (parseFloat(target.getAttribute('data-raw-dy')) || 0) + event.deltaRect.top;
+                    const rawW = (parseFloat(target.getAttribute('data-raw-w')) || event.rect.width) + (event.rect.width - (parseFloat(target.getAttribute('data-raw-w'))||event.rect.width));
+                    // The above logic for rawW/rawH just tracks the mouse. Actually interact provides event.rect which tracks the mouse directly!
+                    const proposedW = event.rect.width;
+                    const proposedH = event.rect.height;
 
-                    let { x, y } = target.dataset;
-                    x = (parseFloat(x) || 0) + dxPct;
-                    y = (parseFloat(y) || 0) + dyPct;
+                    target.setAttribute('data-raw-dx', rawDx);
+                    target.setAttribute('data-raw-dy', rawDy);
+                    target.setAttribute('data-raw-w', proposedW);
+                    target.setAttribute('data-raw-h', proposedH);
+
+                    const snapped = calculateSnapAndDrawGuides(id, rawDx, rawDy, proposedW, proposedH);
+
+                    const wPct = (snapped.w / cw) * 100;
+                    const hPct = (snapped.h / ch) * 100;
 
                     Object.assign(target.style, {
                         width: `${wPct}%`,
                         height: `${hPct}%`
                     });
                     
-                    const dx = (parseFloat(target.getAttribute('data-dx')) || 0) + event.deltaRect.left;
-                    const dy = (parseFloat(target.getAttribute('data-dy')) || 0) + event.deltaRect.top;
-                    
-                    const type = target.dataset.type;
-                    const id = target.dataset.id;
-                    const list = type === 'aisle' ? warehouseData.aisles : warehouseData.racks;
-                    const item = list.find(i => i.id === id);
-                    const rot = item ? (item.rotation || 0) : 0;
-                    
-                    target.style.transform = `translate(${dx}px, ${dy}px) rotate(${rot}deg)`;
-                    target.setAttribute('data-dx', dx);
-                    target.setAttribute('data-dy', dy);
+                    target.style.transform = `translate(${snapped.dx}px, ${snapped.dy}px) rotate(${rot}deg)`;
+                    target.setAttribute('data-dx', snapped.dx);
+                    target.setAttribute('data-dy', snapped.dy);
                 },
                 end(event) {
                     const target = event.target;
@@ -856,8 +1003,8 @@ function setupInteractJs() {
                     const dxPct = (dxPix / cw) * 100;
                     const dyPct = (dyPix / ch) * 100;
                     
-                    const finalWidthPx = target.offsetWidth;
-                    const finalHeightPx = target.offsetHeight;
+                    const wPct = (target.offsetWidth / cw) * 100;
+                    const hPct = (target.offsetHeight / ch) * 100;
 
                     const id = target.dataset.id;
                     const type = target.dataset.type;
@@ -867,13 +1014,16 @@ function setupInteractJs() {
                     if (item) {
                         item.x += dxPct;
                         item.y += dyPct;
-                        item.w = (finalWidthPx / cw) * 100;
-                        item.h = (finalHeightPx / ch) * 100;
+                        item.w = wPct;
+                        item.h = hPct;
                     }
                     
                     saveData();
                     target.setAttribute('data-dx', 0);
                     target.setAttribute('data-dy', 0);
+                    target.setAttribute('data-raw-dx', 0);
+                    target.setAttribute('data-raw-dy', 0);
+                    clearSnapGuides();
                     renderFloorPlan();
                 }
             }
