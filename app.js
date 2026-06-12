@@ -1924,12 +1924,69 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('login-funcionario-group').classList.remove('hidden');
     }
 
+    const tryLogin = async () => {
+        const val = inputPass.value;
+        if (!val) return;
+        
+        btnLogin.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verificando...';
+        btnLogin.disabled = true;
+        errorMsg.classList.add('hidden');
+        
+        try {
+            // Chama a função RPC segura no banco de dados para verificar o hash
+            const { data, error } = await supabaseApp.rpc('verify_password', { input_password: val });
+            
+            if (error) throw error;
+            
+            if (data === true) {
+                // Senha Correta
+                
+                if (rackIdAudit) {
+                    const funcName = document.getElementById('login-funcionario-input').value.trim();
+                    if (!funcName) {
+                        alert("Por favor, digite seu nome de funcionário.");
+                        btnLogin.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Acessar';
+                        btnLogin.disabled = false;
+                        return;
+                    }
+                    window.auditWorkerName = funcName;
+                    sessionStorage.setItem('estoquepro_audit_worker', funcName);
+                    sessionStorage.setItem('estoquepro_auth', 'true');
+                    lockOverlay.remove();
+                    document.body.classList.add('mobile-audit-active');
+                    init().then(() => window.startMobileAudit(rackIdAudit));
+                } else {
+                    sessionStorage.setItem('estoquepro_auth', 'true');
+                    lockOverlay.remove();
+                    init(); // Inicia o sistema
+                }
+            } else {
+                // Senha Incorreta
+                errorMsg.classList.remove('hidden');
+                inputPass.value = '';
+                inputPass.focus();
+            }
+        } catch(err) {
+            console.error("Erro na verificação de senha:", err);
+            errorMsg.innerText = "Erro ao conectar com o banco de dados.";
+            errorMsg.classList.remove('hidden');
+        }
+        
+        btnLogin.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Acessar';
+        btnLogin.disabled = false;
+    };
+    
+    btnLogin.addEventListener('click', tryLogin);
+    inputPass.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') tryLogin();
+    });
+
     // Verifica se já está logado na sessão atual do navegador
     if (sessionStorage.getItem('estoquepro_auth') === 'true') {
-        lockOverlay.remove();
         if (rackIdAudit) {
             const funcName = sessionStorage.getItem('estoquepro_audit_worker');
             if (funcName) {
+                lockOverlay.remove();
                 window.auditWorkerName = funcName;
                 document.body.classList.add('mobile-audit-active');
                 init().then(() => window.startMobileAudit(rackIdAudit));
@@ -1939,68 +1996,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 lockOverlay.classList.remove('hidden');
             }
         } else {
+            lockOverlay.remove();
             init();
         }
     } else {
-        // Exibe a tela de login (já está visível por padrão no HTML, apenas garante)
+        // Exibe a tela de login
         lockOverlay.classList.remove('hidden');
-        
-        const tryLogin = async () => {
-            const val = inputPass.value;
-            if (!val) return;
-            
-            btnLogin.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verificando...';
-            btnLogin.disabled = true;
-            errorMsg.classList.add('hidden');
-            
-            try {
-                // Chama a função RPC segura no banco de dados para verificar o hash
-                const { data, error } = await supabaseApp.rpc('verify_password', { input_password: val });
-                
-                if (error) throw error;
-                
-                if (data === true) {
-                    // Senha Correta
-                    
-                    if (rackIdAudit) {
-                        const funcName = document.getElementById('login-funcionario-input').value.trim();
-                        if (!funcName) {
-                            alert("Por favor, digite seu nome de funcionário.");
-                            btnLogin.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Acessar';
-                            btnLogin.disabled = false;
-                            return;
-                        }
-                        window.auditWorkerName = funcName;
-                        sessionStorage.setItem('estoquepro_audit_worker', funcName);
-                        sessionStorage.setItem('estoquepro_auth', 'true');
-                        lockOverlay.remove();
-                        document.body.classList.add('mobile-audit-active');
-                        init().then(() => window.startMobileAudit(rackIdAudit));
-                    } else {
-                        sessionStorage.setItem('estoquepro_auth', 'true');
-                        lockOverlay.remove();
-                        init(); // Inicia o sistema
-                    }
-                } else {
-                    // Senha Incorreta
-                    errorMsg.classList.remove('hidden');
-                    inputPass.value = '';
-                    inputPass.focus();
-                }
-            } catch(err) {
-                console.error("Erro na verificação de senha:", err);
-                errorMsg.innerText = "Erro ao conectar com o banco de dados.";
-                errorMsg.classList.remove('hidden');
-            }
-            
-            btnLogin.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Acessar';
-            btnLogin.disabled = false;
-        };
-        
-        btnLogin.addEventListener('click', tryLogin);
-        inputPass.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') tryLogin();
-        });
     }
 });
 
