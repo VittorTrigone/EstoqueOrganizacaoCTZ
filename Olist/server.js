@@ -135,6 +135,16 @@ app.get('/api/debug-produto', (req, res) => {
     res.json({ produto: catalogoEmMemoria.length > 0 ? catalogoEmMemoria[0] : null });
 });
 
+app.get('/api/debug-raw', (req, res) => {
+    const termo = (req.query.pesquisa || '').toLowerCase().trim();
+    const resultados = catalogoEmMemoria.filter(produto => {
+        const nome = (produto.descricao || '').toLowerCase();
+        const sku = (produto.sku || '').toLowerCase();
+        return nome.includes(termo) || sku.includes(termo);
+    });
+    res.json({ itens: resultados.slice(0, 10) });
+});
+
 app.get('/api/debug-estoque/:id', async (req, res) => {
     try {
         let config = await lerConfig();
