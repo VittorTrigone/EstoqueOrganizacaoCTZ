@@ -2910,10 +2910,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }, 500);
         });
-        });
     }
 });
-
 // === MOBILE AUDIT LOGIC ===
 window.startMobileAudit = async function(rackId) {
     const rack = warehouseData.racks.find(r => r.id === rackId);
