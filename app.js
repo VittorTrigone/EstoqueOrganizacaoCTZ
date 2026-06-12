@@ -473,6 +473,11 @@ function renderFloorPlan() {
                 
                 itemDiv.addEventListener('dragleave', () => itemDiv.classList.remove('drag-over'));
                 
+                itemDiv.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    window.openRackVisualizer(rack.id);
+                });
+                
                 itemDiv.addEventListener('drop', (e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -500,9 +505,10 @@ function renderFloorPlan() {
         
         let initialLevelId = null;
         if (rack.levels && rack.levels.length > 0) {
-            initialLevelId = rack.levels[0].id;
+            const reversedLevels = [...rack.levels].reverse();
+            initialLevelId = reversedLevels[0].id;
             
-            rack.levels.forEach((level, idx) => {
+            reversedLevels.forEach((level, idx) => {
                 const tab = document.createElement('div');
                 tab.className = 'lod-tab';
                 if (idx === 0) tab.classList.add('active');
