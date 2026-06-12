@@ -2513,6 +2513,15 @@ window.renderRackVisualizer = function() {
                 
                 box.addEventListener('dragend', () => box.classList.remove('dragging'));
                 
+                box.addEventListener('dblclick', () => {
+                    const newName = prompt('Editar Nome de Exibição do Produto:', item.name || '');
+                    if (newName !== null) {
+                        item.name = newName;
+                        saveData();
+                        window.renderRackVisualizer();
+                    }
+                });
+                
                 shelf.appendChild(box);
             });
         }
