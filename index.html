@@ -273,7 +273,19 @@
         </div>
     </div>
 
-    <!-- Supabase JS Client -->
+    <!-- Custom Prompt Modal -->
+    <div id="custom-prompt-modal" class="modal-overlay hidden" style="z-index: 10000; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; backdrop-filter: blur(2px);">
+        <div style="background: var(--bg-surface); padding: 1.5rem; border-radius: 8px; width: 350px; box-shadow: var(--shadow-lg); border: 1px solid var(--border-color);">
+            <h3 id="custom-prompt-title" style="margin-top: 0; margin-bottom: 1rem;">Editar Nome</h3>
+            <input type="text" id="custom-prompt-input" style="width: 100%; padding: 0.75rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-base); color: var(--text-primary); margin-bottom: 1rem;">
+            <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+                <button id="custom-prompt-cancel" class="btn-secondary">Cancelar</button>
+                <button id="custom-prompt-confirm" class="btn-primary">Salvar</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Toast Notifications -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="app.js"></script>
 </body>

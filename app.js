@@ -2399,6 +2399,42 @@ document.addEventListener('DOMContentLoaded', () => {
 // === 2D RACK VISUALIZER LOGIC ===
 let currentRackVisualizerId = null;
 
+window.showCustomPrompt = function(title, defaultValue, onConfirm) {
+    const modal = document.getElementById('custom-prompt-modal');
+    const titleEl = document.getElementById('custom-prompt-title');
+    const inputEl = document.getElementById('custom-prompt-input');
+    const btnCancel = document.getElementById('custom-prompt-cancel');
+    const btnConfirm = document.getElementById('custom-prompt-confirm');
+    
+    titleEl.innerText = title;
+    inputEl.value = defaultValue;
+    modal.classList.remove('hidden');
+    inputEl.focus();
+    
+    // Clean up old listeners
+    const newBtnCancel = btnCancel.cloneNode(true);
+    const newBtnConfirm = btnConfirm.cloneNode(true);
+    btnCancel.parentNode.replaceChild(newBtnCancel, btnCancel);
+    btnConfirm.parentNode.replaceChild(newBtnConfirm, btnConfirm);
+    
+    const close = () => modal.classList.add('hidden');
+    
+    newBtnCancel.addEventListener('click', close);
+    newBtnConfirm.addEventListener('click', () => {
+        onConfirm(inputEl.value);
+        close();
+    });
+    
+    inputEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            onConfirm(inputEl.value);
+            close();
+        } else if (e.key === 'Escape') {
+            close();
+        }
+    });
+};
+
 window.openRackVisualizer = function(rackId) {
     currentRackVisualizerId = rackId;
     const rack = warehouseData.racks.find(r => r.id === rackId);
@@ -2514,12 +2550,14 @@ window.renderRackVisualizer = function() {
                 box.addEventListener('dragend', () => box.classList.remove('dragging'));
                 
                 box.addEventListener('dblclick', () => {
-                    const newName = prompt('Editar Nome de Exibição do Produto:', item.name || '');
-                    if (newName !== null) {
-                        item.name = newName;
-                        saveData();
-                        window.renderRackVisualizer();
-                    }
+                    window.showCustomPrompt('Editar Nome de Exibição do Produto:', item.name || '', (newName) => {
+                        const trimmed = newName.trim();
+                        if (trimmed && trimmed !== item.name) {
+                            item.name = trimmed;
+                            saveData();
+                            window.renderRackVisualizer();
+                        }
+                    });
                 });
                 
                 shelf.appendChild(box);
@@ -2555,8 +2593,8 @@ window.renderRackVisualizer = function() {
                 saveData();
                 window.renderRackVisualizer();
                 
-                await window.syncOlistForStructuralChange(sourceLevel.id, 'item');
-                await window.syncOlistForStructuralChange(level.id, 'item');
+                await window.syncOlistForStructuralChange(sourceLevel.id, 'level');
+                await window.syncOlistForStructuralChange(level.id, 'level');
                 
             } else if (data.type === 'new') {
                 if (!level.items) level.items = [];
@@ -2569,7 +2607,7 @@ window.renderRackVisualizer = function() {
                 saveData();
                 window.renderRackVisualizer();
                 
-                await window.syncOlistForStructuralChange(level.id, 'item');
+                await window.syncOlistForStructuralChange(level.id, 'level');
             }
         });
         
@@ -2603,7 +2641,7 @@ window.deleteItemFromVisualizer = async function(levelId, itemIdx, e) {
         level.items.splice(itemIdx, 1);
         saveData();
         window.renderRackVisualizer();
-        await window.syncOlistForStructuralChange(levelId, 'item');
+        await window.syncOlistForStructuralChange(levelId, 'level');
     }
 };
 
