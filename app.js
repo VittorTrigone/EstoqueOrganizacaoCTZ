@@ -727,9 +727,14 @@ function openInspector(rackId) {
     dom.inspectorContent.innerHTML = `
         <div style="display:flex; justify-content:space-between; margin-bottom: 1rem; align-items:center;">
             <span style="font-weight:bold; color:var(--text-secondary);">Gerenciar Níveis</span>
-            <button class="btn btn-secondary btn-small" onclick="window.addLevelToRack('${rack.id}')" style="font-size: 0.75rem;">
-                <i class="fa-solid fa-layer-group"></i> + Nível
-            </button>
+            <div style="display: flex; gap: 0.5rem;">
+                <button class="btn btn-secondary btn-small" onclick="window.generateQRCode('${rack.id}')" style="font-size: 0.75rem;" title="Imprimir QR Code para Auditoria Mobile">
+                    <i class="fa-solid fa-qrcode"></i> QR
+                </button>
+                <button class="btn btn-secondary btn-small" onclick="window.addLevelToRack('${rack.id}')" style="font-size: 0.75rem;">
+                    <i class="fa-solid fa-layer-group"></i> + Nível
+                </button>
+            </div>
         </div>
     `;
     
@@ -772,6 +777,32 @@ function openInspector(rackId) {
     
     dom.inspector.classList.remove('hidden');
 }
+
+window.generateQRCode = function(rackId) {
+    const rack = warehouseData.racks.find(r => r.id === rackId);
+    if (!rack) return;
+    
+    // Constrói a URL para a auditoria
+    const baseUrl = window.location.href.split('?')[0].split('#')[0];
+    const url = baseUrl + '?auditoria=' + rackId;
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(url)}`;
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.style.cssText = 'z-index: 10000; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px);';
+    modal.innerHTML = `
+        <div style="background: var(--bg-surface); padding: 2rem; border-radius: 12px; width: 400px; max-width: 90%; text-align: center; border: 1px solid var(--border-color); box-shadow: var(--shadow-xl);">
+            <h2 style="margin-top: 0;">QR Code: ${rack.name}</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 1.5rem; font-size: 0.9rem;">Escaneie com o celular para iniciar a auditoria de inventário desta estante.</p>
+            <div style="background: white; padding: 1rem; border-radius: 8px; display: inline-block; margin-bottom: 1.5rem;">
+                <img src="${qrUrl}" alt="QR Code" style="width: 250px; height: 250px;">
+            </div>
+            <p style="color: var(--text-secondary); font-size: 0.75rem; word-break: break-all; margin-bottom: 1.5rem;">${url}</p>
+            <button class="btn btn-primary" onclick="this.closest('.modal-overlay').remove()" style="width: 100%; justify-content: center;">Fechar</button>
+        </div>
+    `;
+    document.body.appendChild(modal);
+};
 
 // === LÓGICA DE ITENS E NÍVEIS GLOBAIS ===
 window.addLevelToRack = function(rackId) {
@@ -1494,6 +1525,11 @@ function setupEventListeners() {
     dom.navFloorplan.addEventListener('click', (e) => { e.preventDefault(); switchTab('floorplan'); });
     dom.navItemlist.addEventListener('click', (e) => { e.preventDefault(); switchTab('itemlist'); });
     
+    const navAuditorias = document.getElementById('nav-auditorias');
+    if (navAuditorias) {
+        navAuditorias.addEventListener('click', (e) => { e.preventDefault(); switchTab('auditorias'); });
+    }
+    
     const navSettings = document.getElementById('nav-settings');
     if (navSettings) {
         navSettings.addEventListener('click', (e) => { e.preventDefault(); switchTab('settings'); });
@@ -1504,16 +1540,20 @@ function setupEventListeners() {
 function switchTab(tab) {
     const navSettings = document.getElementById('nav-settings');
     const settingsContainer = document.getElementById('settings-container');
+    const navAuditorias = document.getElementById('nav-auditorias');
+    const auditoriasContainer = document.getElementById('auditorias-container');
 
     // Desmarca todos
     dom.navFloorplan.parentElement.classList.remove('active');
     dom.navItemlist.parentElement.classList.remove('active');
     if (navSettings) navSettings.parentElement.classList.remove('active');
+    if (navAuditorias) navAuditorias.parentElement.classList.remove('active');
     
     // Esconde todos
     dom.containerFloorplan.classList.add('hidden');
     dom.containerItemlist.classList.add('hidden');
     if (settingsContainer) settingsContainer.classList.add('hidden');
+    if (auditoriasContainer) auditoriasContainer.classList.add('hidden');
     dom.floorplanActions.classList.add('hidden');
     
     if (tab === 'floorplan') {
@@ -1530,6 +1570,13 @@ function switchTab(tab) {
         dom.pageSubtitle.textContent = 'Visão geral de todos os SKUs armazenados';
         renderItemList();
         closeInspector();
+    } else if (tab === 'auditorias') {
+        if (navAuditorias) navAuditorias.parentElement.classList.add('active');
+        if (auditoriasContainer) auditoriasContainer.classList.remove('hidden');
+        dom.pageTitle.textContent = 'Histórico de Contagens';
+        dom.pageSubtitle.textContent = 'Auditorias realizadas por funcionários via QR Code';
+        window.renderAuditoriasList();
+        closeInspector();
     } else if (tab === 'settings') {
         if (navSettings) navSettings.parentElement.classList.add('active');
         if (settingsContainer) settingsContainer.classList.remove('hidden');
@@ -1538,6 +1585,83 @@ function switchTab(tab) {
         closeInspector();
     }
 }
+
+window.renderAuditoriasList = async function() {
+    const listEl = document.getElementById('auditorias-list');
+    if (!listEl) return;
+    
+    listEl.innerHTML = '<div style="text-align:center; padding: 2rem; color:var(--text-secondary);"><i class="fa-solid fa-spinner fa-spin"></i> Carregando...</div>';
+    
+    try {
+        const { data, error } = await supabaseApp.from('contagens_inventario').select('*').order('data_contagem', { ascending: false });
+        if (error) throw error;
+        
+        if (!data || data.length === 0) {
+            listEl.innerHTML = '<div style="text-align:center; padding: 2rem; color:var(--text-secondary); background: var(--bg-surface-elevated); border-radius: 8px; border: 1px dashed var(--border-color);">Nenhuma auditoria realizada ainda.</div>';
+            return;
+        }
+        
+        listEl.innerHTML = data.map(audit => {
+            const dataFormatada = new Date(audit.data_contagem).toLocaleString('pt-BR');
+            let itensHtml = '';
+            
+            // Render items
+            if (audit.itens_contados && Array.isArray(audit.itens_contados)) {
+                itensHtml = audit.itens_contados.map(it => `
+                    <div style="display:flex; justify-content:space-between; font-size: 0.85rem; padding: 0.25rem 0; border-bottom: 1px solid var(--border-color);">
+                        <span>${it.sku} ${it.name ? `- ${it.name}` : ''}</span>
+                        <span style="font-weight:bold;">Qtd: ${it.quantidade}</span>
+                    </div>
+                `).join('');
+            }
+            
+            // Render novos
+            let novosHtml = '';
+            if (audit.produtos_adicionados && Array.isArray(audit.produtos_adicionados) && audit.produtos_adicionados.length > 0) {
+                novosHtml = `
+                    <div style="margin-top: 1rem; padding: 0.75rem; background: rgba(16, 185, 129, 0.1); border: 1px solid var(--accent-success); border-radius: 4px;">
+                        <div style="color: var(--accent-success); font-weight: bold; font-size: 0.85rem; margin-bottom: 0.5rem;"><i class="fa-solid fa-plus-circle"></i> Produtos Novos Encontrados:</div>
+                        ${audit.produtos_adicionados.map(it => `
+                            <div style="font-size: 0.85rem; display: flex; justify-content: space-between;">
+                                <span>${it.sku}</span>
+                                <span>Qtd: ${it.quantidade}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+            
+            return `
+                <div class="auditoria-card">
+                    <div class="auditoria-card-header">
+                        <div>
+                            <h3 style="margin: 0 0 0.5rem 0; color: var(--text-primary);"><i class="fa-solid fa-server" style="color:var(--text-secondary)"></i> ${audit.rack_nome}</h3>
+                            <div style="font-size: 0.85rem; color: var(--text-secondary);"><i class="fa-regular fa-clock"></i> ${dataFormatada}</div>
+                            <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.25rem;"><i class="fa-solid fa-user"></i> ${audit.funcionario}</div>
+                        </div>
+                        <img src="${audit.assinatura}" class="auditoria-signature-img" alt="Assinatura de ${audit.funcionario}">
+                    </div>
+                    <div>
+                        <h4 style="margin: 0 0 0.5rem 0; font-size: 0.9rem;">Itens Contados:</h4>
+                        <div style="max-height: 150px; overflow-y: auto; padding-right: 0.5rem;">
+                            ${itensHtml || '<div style="font-size: 0.85rem; color: var(--text-secondary);">Nenhum item contato.</div>'}
+                        </div>
+                        ${novosHtml}
+                        ${audit.observacao ? `
+                            <div style="margin-top: 1rem; padding: 0.75rem; background: var(--bg-base); border-left: 3px solid var(--accent-warning); border-radius: 0 4px 4px 0; font-size: 0.85rem;">
+                                <strong>Obs:</strong> ${audit.observacao}
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+    } catch(err) {
+        console.error("Erro ao carregar auditorias:", err);
+        listEl.innerHTML = '<div style="text-align:center; padding: 2rem; color:var(--accent-danger);">Erro ao carregar auditorias.</div>';
+    }
+};
 
 // Renderizar Tabela de Itens (Agrupada por SKU)
 function renderItemList(filterText = '') {
@@ -1590,6 +1714,9 @@ function renderItemList(filterText = '') {
             </td>
             <td style="padding: 1rem; border-bottom: 1px solid var(--border-color); font-weight: bold;" id="estoque-col-${sku}">
                 <i class="fa-solid fa-spinner fa-spin" style="color: var(--text-secondary)"></i>
+            </td>
+            <td style="padding: 1rem; border-bottom: 1px solid var(--border-color); font-weight: bold; color: var(--accent-primary);">
+                ${itemData.placements.length}
             </td>
             <td style="padding: 1rem; border-bottom: 1px solid var(--border-color); color: var(--accent-success); font-weight: 500;">${locationStr || 'Sem Localização'}</td>
             <td style="padding: 1rem; border-bottom: 1px solid var(--border-color);">
@@ -1787,10 +1914,33 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnLogin = document.getElementById('btn-login-submit');
     const errorMsg = document.getElementById('login-error-msg');
     
+    // Verifica auditoria na URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const rackIdAudit = urlParams.get('auditoria');
+    
+    if (rackIdAudit) {
+        document.getElementById('login-title').textContent = "Auditoria de Estoque";
+        document.getElementById('login-subtitle').textContent = "Identifique-se e insira a senha para contar a estante.";
+        document.getElementById('login-funcionario-group').classList.remove('hidden');
+    }
+
     // Verifica se já está logado na sessão atual do navegador
     if (sessionStorage.getItem('estoquepro_auth') === 'true') {
         lockOverlay.remove();
-        init();
+        if (rackIdAudit) {
+            const funcName = sessionStorage.getItem('estoquepro_audit_worker');
+            if (funcName) {
+                window.auditWorkerName = funcName;
+                document.body.classList.add('mobile-audit-active');
+                init().then(() => window.startMobileAudit(rackIdAudit));
+            } else {
+                // Sessão logada, mas sem nome do funcionário, forçamos o login de novo
+                sessionStorage.removeItem('estoquepro_auth');
+                lockOverlay.classList.remove('hidden');
+            }
+        } else {
+            init();
+        }
     } else {
         // Exibe a tela de login (já está visível por padrão no HTML, apenas garante)
         lockOverlay.classList.remove('hidden');
@@ -1811,9 +1961,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 if (data === true) {
                     // Senha Correta
-                    sessionStorage.setItem('estoquepro_auth', 'true');
-                    lockOverlay.remove();
-                    init(); // Inicia o sistema
+                    
+                    if (rackIdAudit) {
+                        const funcName = document.getElementById('login-funcionario-input').value.trim();
+                        if (!funcName) {
+                            alert("Por favor, digite seu nome de funcionário.");
+                            btnLogin.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Acessar';
+                            btnLogin.disabled = false;
+                            return;
+                        }
+                        window.auditWorkerName = funcName;
+                        sessionStorage.setItem('estoquepro_audit_worker', funcName);
+                        sessionStorage.setItem('estoquepro_auth', 'true');
+                        lockOverlay.remove();
+                        document.body.classList.add('mobile-audit-active');
+                        init().then(() => window.startMobileAudit(rackIdAudit));
+                    } else {
+                        sessionStorage.setItem('estoquepro_auth', 'true');
+                        lockOverlay.remove();
+                        init(); // Inicia o sistema
+                    }
                 } else {
                     // Senha Incorreta
                     errorMsg.classList.remove('hidden');
@@ -2742,5 +2909,417 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }, 500);
         });
+        });
     }
 });
+
+// === MOBILE AUDIT LOGIC ===
+window.startMobileAudit = async function(rackId) {
+    const rack = warehouseData.racks.find(r => r.id === rackId);
+    if (!rack) {
+        alert("Estante não encontrada.");
+        return;
+    }
+
+    const titleEl = document.getElementById('mobile-audit-title');
+    const cooldownEl = document.getElementById('mobile-audit-cooldown');
+    const cooldownMsg = document.getElementById('mobile-audit-cooldown-msg');
+    const proceedBtn = document.getElementById('btn-mobile-cooldown-proceed');
+    const contentEl = document.getElementById('mobile-audit-content');
+    const themeBtn = document.getElementById('btn-mobile-theme');
+    const finishBtn = document.getElementById('btn-mobile-audit-finish');
+
+    titleEl.textContent = `Auditoria: ${rack.name}`;
+    
+    // Theme toggle
+    themeBtn.onclick = () => {
+        document.body.classList.toggle('light-theme');
+        themeBtn.innerHTML = document.body.classList.contains('light-theme') ? '<i class="fa-solid fa-sun"></i>' : '<i class="fa-solid fa-moon"></i>';
+    };
+
+    // Check Cooldown
+    try {
+        const { data } = await supabaseApp.from('contagens_inventario')
+            .select('data_contagem')
+            .eq('rack_id', rack.id)
+            .order('data_contagem', { ascending: false })
+            .limit(1);
+
+        if (data && data.length > 0) {
+            const lastDate = new Date(data[0].data_contagem);
+            const now = new Date();
+            const diffDays = Math.floor((now - lastDate) / (1000 * 60 * 60 * 24));
+            if (diffDays < 10) {
+                cooldownMsg.textContent = `Esta estante foi contada há ${diffDays} dias (${lastDate.toLocaleDateString()}). Deseja prosseguir?`;
+                cooldownEl.classList.remove('hidden');
+                contentEl.classList.add('hidden');
+                finishBtn.classList.add('hidden');
+            }
+        }
+    } catch (e) {
+        console.warn("Erro ao checar cooldown", e);
+    }
+
+    proceedBtn.onclick = () => {
+        cooldownEl.classList.add('hidden');
+        contentEl.classList.remove('hidden');
+        finishBtn.classList.remove('hidden');
+    };
+
+    // Calculate "Estoque Existente" (Stock in all OTHER racks)
+    const getStockInOtherRacks = (sku) => {
+        let total = 0;
+        warehouseData.racks.forEach(r => {
+            if (r.id === rack.id) return; // Skip current rack
+            if (!r.levels) return;
+            r.levels.forEach(l => {
+                if (!l.items) return;
+                l.items.forEach(item => {
+                    if (item.sku === sku) total += 1;
+                });
+            });
+        });
+        return total;
+    };
+
+    // Render Form
+    let html = '';
+    
+    // Reverse levels to show bottom first or top first? Usually top first in mobile view is fine
+    const levels = rack.levels || [];
+    
+    levels.forEach((level, lIndex) => {
+        html += `<div class="audit-level-card">`;
+        html += `<h3 style="margin-top:0; border-bottom:1px solid var(--border-color); padding-bottom:0.5rem; color:var(--accent-primary);"><i class="fa-solid fa-layer-group"></i> ${level.name}</h3>`;
+        
+        // Count items in this level to group them by SKU
+        const skuGroups = {};
+        if (level.items) {
+            level.items.forEach(item => {
+                if (!skuGroups[item.sku]) {
+                    skuGroups[item.sku] = { name: item.name, count: 0 };
+                }
+                skuGroups[item.sku].count++;
+            });
+        }
+        
+        if (Object.keys(skuGroups).length === 0) {
+            html += `<p style="color:var(--text-secondary); font-size:0.9rem;">Nenhum item registrado neste nível.</p>`;
+        } else {
+            Object.keys(skuGroups).forEach(sku => {
+                const group = skuGroups[sku];
+                const otherStock = getStockInOtherRacks(sku);
+                
+                html += `
+                    <div class="audit-item-row" data-level="${level.id}" data-sku="${sku}" data-name="${group.name}">
+                        <div style="font-weight:bold; color:var(--text-primary);">${sku}</div>
+                        <div style="font-size:0.8rem; color:var(--text-secondary); margin-bottom: 0.5rem;">${group.name || ''}</div>
+                        
+                        <div class="audit-input-group">
+                            <div>
+                                <label style="display:block; font-size:0.75rem; color:var(--text-secondary); margin-bottom:0.25rem;">Outras Estantes</label>
+                                <input type="number" value="${otherStock}" disabled style="width:100%; padding:0.5rem; background:rgba(0,0,0,0.2); border:1px solid var(--border-color); color:var(--text-secondary); border-radius:4px; text-align:center;">
+                            </div>
+                            <div>
+                                <label style="display:block; font-size:0.75rem; color:var(--text-secondary); margin-bottom:0.25rem;">Qtd. Encontrada</label>
+                                <input type="number" class="audit-qty-input" value="${group.count}" min="0" style="width:100%; padding:0.5rem; background:var(--bg-base); border:1px solid var(--accent-primary); color:var(--text-primary); border-radius:4px; text-align:center; font-weight:bold;">
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+        
+        html += `</div>`;
+    });
+
+    html += `
+        <div class="audit-level-card">
+            <h3 style="margin-top:0; color:var(--text-primary);"><i class="fa-solid fa-plus-circle" style="color:var(--accent-success);"></i> Adicionar Produto Novo</h3>
+            <p style="font-size:0.8rem; color:var(--text-secondary);">Encontrou algo nesta estante que não estava no sistema?</p>
+            <div id="mobile-new-products-list" style="margin-bottom: 1rem;"></div>
+            
+            <div style="background:var(--bg-base); padding:1rem; border-radius:6px; border:1px dashed var(--border-color);">
+                <input type="text" id="mobile-search-olist" placeholder="Buscar SKU ou Nome..." style="width:100%; padding:0.5rem; margin-bottom:0.5rem; background:var(--bg-surface); border:1px solid var(--border-color); color:var(--text-primary); border-radius:4px;">
+                <div id="mobile-search-results" class="hidden" style="max-height: 150px; overflow-y: auto; background: var(--bg-surface-elevated); border:1px solid var(--border-color); border-radius:4px; margin-bottom:0.5rem;"></div>
+                
+                <input type="text" id="mobile-new-sku" readonly placeholder="SKU Selecionado" style="width:100%; padding:0.5rem; margin-bottom:0.5rem; background:rgba(0,0,0,0.2); border:1px solid var(--border-color); color:var(--text-secondary); border-radius:4px;">
+                <input type="text" id="mobile-new-name" readonly placeholder="Nome do Produto" style="width:100%; padding:0.5rem; margin-bottom:0.5rem; background:rgba(0,0,0,0.2); border:1px solid var(--border-color); color:var(--text-secondary); border-radius:4px;">
+                
+                <div style="display:flex; gap:0.5rem; margin-bottom: 0.5rem;">
+                    <div style="flex:1;">
+                        <label style="font-size:0.75rem; color:var(--text-secondary);">Qtd</label>
+                        <input type="number" id="mobile-new-qty" min="1" value="1" style="width:100%; padding:0.5rem; background:var(--bg-surface); border:1px solid var(--border-color); color:var(--text-primary); border-radius:4px; text-align:center;">
+                    </div>
+                    <div style="flex:2;">
+                        <label style="font-size:0.75rem; color:var(--text-secondary);">Nível</label>
+                        <select id="mobile-new-level" style="width:100%; padding:0.5rem; background:var(--bg-surface); border:1px solid var(--border-color); color:var(--text-primary); border-radius:4px;">
+                            ${levels.map(l => `<option value="${l.id}">${l.name}</option>`).join('')}
+                        </select>
+                    </div>
+                </div>
+                
+                <button class="btn btn-secondary" id="btn-mobile-add-product" style="width:100%; justify-content:center; border-color:var(--accent-success); color:var(--accent-success);">Adicionar à Lista de Contagem</button>
+            </div>
+        </div>
+    `;
+
+    html += `
+        <div class="audit-level-card">
+            <h3 style="margin-top:0; color:var(--text-primary);"><i class="fa-solid fa-message"></i> Observação</h3>
+            <textarea id="mobile-audit-obs" rows="3" placeholder="Ex: Produto X está avariado. Caixa Y estava aberta..." style="width:100%; padding:0.75rem; background:var(--bg-base); border:1px solid var(--border-color); color:var(--text-primary); border-radius:6px; resize:vertical; font-family:inherit;"></textarea>
+        </div>
+    `;
+
+    html += `
+        <div class="audit-level-card" style="margin-bottom: 0;">
+            <h3 style="margin-top:0; color:var(--text-primary);"><i class="fa-solid fa-signature"></i> Assinatura Digital</h3>
+            <p style="font-size:0.8rem; color:var(--text-secondary);">Assine com o dedo no quadro abaixo para validar.</p>
+            <canvas id="audit-signature-canvas" class="audit-signature-pad" width="400" height="150"></canvas>
+            <div style="text-align:right; margin-top:0.5rem;">
+                <button class="btn-icon" id="btn-clear-signature" style="color:var(--text-secondary); background:none; border:none; font-size:0.8rem; cursor:pointer;"><i class="fa-solid fa-eraser"></i> Limpar Assinatura</button>
+            </div>
+        </div>
+    `;
+
+    contentEl.innerHTML = html;
+
+    // --- LOGICA DE ADICIONAR NOVO PRODUTO ---
+    const mobileSearchInput = document.getElementById('mobile-search-olist');
+    const mobileSearchResults = document.getElementById('mobile-search-results');
+    const mobileNewSku = document.getElementById('mobile-new-sku');
+    const mobileNewName = document.getElementById('mobile-new-name');
+    const mobileNewQty = document.getElementById('mobile-new-qty');
+    const mobileNewLevel = document.getElementById('mobile-new-level');
+    const btnMobileAdd = document.getElementById('btn-mobile-add-product');
+    const mobileNewList = document.getElementById('mobile-new-products-list');
+    
+    let addedProducts = [];
+    let searchTimer = null;
+
+    if (mobileSearchInput) {
+        mobileSearchInput.addEventListener('input', (e) => {
+            clearTimeout(searchTimer);
+            const termo = e.target.value.trim();
+            if (!termo) {
+                mobileSearchResults.classList.add('hidden');
+                return;
+            }
+            
+            searchTimer = setTimeout(async () => {
+                mobileSearchResults.classList.remove('hidden');
+                mobileSearchResults.innerHTML = '<div style="padding:0.5rem; text-align:center; color:var(--text-secondary); font-size:0.8rem;">Buscando...</div>';
+                try {
+                    const response = await fetch(`${API_BASE_URL}/api/produtos?pesquisa=${encodeURIComponent(termo)}`);
+                    if (!response.ok) throw new Error('Erro API');
+                    const responseData = await response.json();
+                    const itens = responseData.itens || [];
+                    
+                    if (itens.length === 0) {
+                        mobileSearchResults.innerHTML = '<div style="padding:0.5rem; text-align:center; color:var(--text-secondary); font-size:0.8rem;">Não encontrado.</div>';
+                        return;
+                    }
+                    
+                    mobileSearchResults.innerHTML = itens.map(item => `
+                        <div class="mobile-search-item" style="padding:0.75rem; border-bottom:1px solid var(--border-color); cursor:pointer;" data-sku="${item.sku || ''}" data-name="${item.descricao || ''}">
+                            <div style="font-weight:bold; font-size:0.85rem; color:var(--text-primary); pointer-events:none;">${item.sku}</div>
+                            <div style="font-size:0.75rem; color:var(--text-secondary); pointer-events:none;">${item.descricao}</div>
+                        </div>
+                    `).join('');
+                    
+                    mobileSearchResults.querySelectorAll('.mobile-search-item').forEach(el => {
+                        el.onclick = () => {
+                            mobileNewSku.value = el.dataset.sku;
+                            mobileNewName.value = el.dataset.name;
+                            mobileSearchResults.classList.add('hidden');
+                        };
+                    });
+                } catch(e) {
+                    mobileSearchResults.innerHTML = '<div style="padding:0.5rem; text-align:center; color:var(--accent-danger); font-size:0.8rem;">Erro ao buscar.</div>';
+                }
+            }, 500);
+        });
+    }
+
+    if (btnMobileAdd) {
+        btnMobileAdd.onclick = () => {
+            const sku = mobileNewSku.value;
+            const name = mobileNewName.value;
+            const qty = parseInt(mobileNewQty.value, 10);
+            const lvl = mobileNewLevel.value;
+            
+            if (!sku || isNaN(qty) || qty <= 0) {
+                alert("Selecione um produto e uma quantidade válida.");
+                return;
+            }
+            
+            addedProducts.push({ sku, name, quantidade: qty, levelId: lvl });
+            
+            mobileNewList.innerHTML += `
+                <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-surface); padding:0.5rem; border:1px solid var(--border-color); border-radius:4px; margin-bottom:0.5rem; font-size:0.85rem;">
+                    <div><strong>${sku}</strong> (${qty} un) <br><span style="color:var(--text-secondary); font-size:0.75rem;">${name}</span></div>
+                    <div style="color:var(--text-secondary); font-size:0.75rem;">Nível ID: ${lvl}</div>
+                </div>
+            `;
+            
+            mobileNewSku.value = '';
+            mobileNewName.value = '';
+            mobileSearchInput.value = '';
+            mobileNewQty.value = '1';
+        };
+    }
+
+    // --- LOGICA DE ASSINATURA CANVAS ---
+    const canvas = document.getElementById('audit-signature-canvas');
+    const ctx = canvas.getContext('2d');
+    let isDrawing = false;
+    let hasSignature = false;
+    
+    // Resize canvas based on container width
+    const resizeCanvas = () => {
+        const ratio = Math.max(window.devicePixelRatio || 1, 1);
+        canvas.width = canvas.offsetWidth * ratio;
+        canvas.height = canvas.offsetHeight * ratio;
+        ctx.scale(ratio, ratio);
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#000'; // Black signature
+    };
+    // Need a tiny delay for layout to settle
+    setTimeout(resizeCanvas, 100);
+
+    const getPos = (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        return {
+            x: clientX - rect.left,
+            y: clientY - rect.top
+        };
+    };
+
+    const startDraw = (e) => {
+        e.preventDefault();
+        isDrawing = true;
+        hasSignature = true;
+        const pos = getPos(e);
+        ctx.beginPath();
+        ctx.moveTo(pos.x, pos.y);
+    };
+
+    const draw = (e) => {
+        if (!isDrawing) return;
+        e.preventDefault();
+        const pos = getPos(e);
+        ctx.lineTo(pos.x, pos.y);
+        ctx.stroke();
+    };
+
+    const stopDraw = () => {
+        isDrawing = false;
+        ctx.closePath();
+    };
+
+    canvas.addEventListener('mousedown', startDraw);
+    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mouseup', stopDraw);
+    canvas.addEventListener('mouseout', stopDraw);
+    
+    canvas.addEventListener('touchstart', startDraw, { passive: false });
+    canvas.addEventListener('touchmove', draw, { passive: false });
+    canvas.addEventListener('touchend', stopDraw);
+
+    document.getElementById('btn-clear-signature').onclick = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        hasSignature = false;
+    };
+
+    // --- LOGICA DE FINALIZAR E SALVAR ---
+    finishBtn.onclick = async () => {
+        if (!hasSignature) {
+            alert("Por favor, assine no quadro para finalizar a auditoria.");
+            return;
+        }
+
+        finishBtn.disabled = true;
+        finishBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Salvando...';
+
+        try {
+            // 1. Update `warehouseData` locally based on inputs
+            const rows = contentEl.querySelectorAll('.audit-item-row');
+            let itemsReport = [];
+            
+            // First, clear all existing items in the rack (we rebuild based on audit)
+            rack.levels.forEach(l => l.items = []);
+            
+            // Read inputs
+            rows.forEach(row => {
+                const levelId = row.dataset.level;
+                const sku = row.dataset.sku;
+                const name = row.dataset.name;
+                const qtyInput = row.querySelector('.audit-qty-input');
+                const qty = parseInt(qtyInput.value, 10);
+                
+                if (qty > 0) {
+                    const level = rack.levels.find(l => l.id === levelId);
+                    if (level) {
+                        for(let i=0; i<qty; i++) {
+                            level.items.push({ sku, name });
+                        }
+                        itemsReport.push({ sku, name, quantidade: qty, levelId });
+                    }
+                }
+            });
+
+            // Adicionar os produtos novos
+            addedProducts.forEach(prod => {
+                const level = rack.levels.find(l => l.id === prod.levelId);
+                if (level) {
+                    for(let i=0; i<prod.quantidade; i++) {
+                        level.items.push({ sku: prod.sku, name: prod.name });
+                    }
+                }
+            });
+
+            // Recalculate weights... (Simplification: just trigger saveData and hope logic stays intact)
+            await saveData();
+
+            // 2. Upload signature to base64
+            // Since we scaled it, the base64 will be fine
+            const sigBase64 = canvas.toDataURL("image/png");
+            const obsText = document.getElementById('mobile-audit-obs').value.trim();
+
+            // 3. Save to `contagens_inventario`
+            const { error: dbError } = await supabaseApp.from('contagens_inventario').insert({
+                rack_id: rack.id,
+                rack_nome: rack.name,
+                funcionario: window.auditWorkerName,
+                assinatura: sigBase64,
+                itens_contados: itemsReport,
+                produtos_adicionados: addedProducts,
+                observacao: obsText
+            });
+
+            if (dbError) throw dbError;
+
+            alert("Auditoria salva com sucesso!");
+            
+            // Redireciona o usuário (ou limpa a tela)
+            document.body.innerHTML = `
+                <div style="height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; background:var(--bg-base); color:var(--text-primary);">
+                    <i class="fa-solid fa-circle-check" style="font-size: 5rem; color: var(--accent-success); margin-bottom: 1rem;"></i>
+                    <h2>Concluído!</h2>
+                    <p style="color:var(--text-secondary);">A auditoria da estante ${rack.name} foi salva.</p>
+                </div>
+            `;
+
+        } catch (err) {
+            console.error(err);
+            alert("Erro ao salvar auditoria. Tente novamente.");
+            finishBtn.disabled = false;
+            finishBtn.innerHTML = 'Assinar e Finalizar Contagem';
+        }
+    };
+};
+

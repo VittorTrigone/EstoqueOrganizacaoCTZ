@@ -22,6 +22,7 @@
             <ul class="nav-links">
                 <li class="active"><a href="#" id="nav-floorplan"><i class="fa-solid fa-map-location-dot"></i> Planta Baixa</a></li>
                 <li><a href="#" id="nav-itemlist"><i class="fa-solid fa-list"></i> Lista de Itens</a></li>
+                <li><a href="#" id="nav-auditorias"><i class="fa-solid fa-clipboard-check"></i> Histórico de Contagens</a></li>
                 <li><a href="#" id="nav-settings"><i class="fa-solid fa-gear"></i> Configurações</a></li>
             </ul>
             <div id="olist-connection-status" style="margin-top: auto; padding: 1.5rem; display: flex; align-items: center; gap: 0.75rem; border-top: 1px solid var(--border-color);">
@@ -94,6 +95,7 @@
                             <th style="text-align: left; padding: 1rem; border-bottom: 1px solid var(--border-color);">SKU</th>
                             <th style="text-align: left; padding: 1rem; border-bottom: 1px solid var(--border-color);">Nome do Produto</th>
                             <th style="text-align: left; padding: 1rem; border-bottom: 1px solid var(--border-color);">Estoque (Olist)</th>
+                            <th style="text-align: left; padding: 1rem; border-bottom: 1px solid var(--border-color);">Estoque Físico</th>
                             <th style="text-align: left; padding: 1rem; border-bottom: 1px solid var(--border-color);">Localização (Olist)</th>
                             <th style="text-align: left; padding: 1rem; border-bottom: 1px solid var(--border-color);">Ações</th>
                         </tr>
@@ -102,6 +104,17 @@
                         <!-- Items will be injected here -->
                     </tbody>
                 </table>
+            </div>
+
+            <!-- Auditorias Area -->
+            <div class="auditorias-container hidden" id="auditorias-container" style="padding: 2rem; overflow-y: auto;">
+                <div style="margin-bottom: 1.5rem;">
+                    <h2>Histórico de Contagens (Auditoria)</h2>
+                    <p style="color: var(--text-secondary); margin-top: 0.5rem;">Contagens físicas realizadas via QR Code no galpão.</p>
+                </div>
+                <div id="auditorias-list" style="display: flex; flex-direction: column; gap: 1rem; max-width: 900px;">
+                    <!-- Lista de auditorias será injetada aqui -->
+                </div>
             </div>
 
             <!-- Settings Area -->
@@ -208,10 +221,14 @@
         <div class="bulk-sync-card" style="max-width: 400px; width: 90%;">
             <div style="text-align: center; margin-bottom: 1.5rem;">
                 <i class="fa-solid fa-lock" style="font-size: 3rem; color: var(--accent-primary); margin-bottom: 1rem;"></i>
-                <h2 style="margin: 0; color: var(--text-primary);">Acesso Restrito</h2>
-                <p style="color: var(--text-secondary); margin-top: 0.5rem; font-size: 0.9rem;">Insira a senha mestra para acessar o sistema.</p>
+                <h2 id="login-title" style="margin: 0; color: var(--text-primary);">Acesso Restrito</h2>
+                <p id="login-subtitle" style="color: var(--text-secondary); margin-top: 0.5rem; font-size: 0.9rem;">Insira a senha mestra para acessar o sistema.</p>
             </div>
             
+            <div id="login-funcionario-group" class="hidden" style="margin-bottom: 1rem;">
+                <input type="text" id="login-funcionario-input" placeholder="Seu Nome (Funcionário)" style="width: 100%; padding: 0.8rem 1rem; border: 1px solid var(--border-color); border-radius: 6px; font-size: 1.1rem; text-align: center; background: var(--bg-base); color: var(--text-primary); outline: none;">
+            </div>
+
             <input type="password" id="login-password-input" placeholder="Digite a senha..." style="width: 100%; padding: 0.8rem 1rem; border: 1px solid var(--border-color); border-radius: 6px; font-size: 1.1rem; text-align: center; letter-spacing: 0.2rem; background: var(--bg-base); color: var(--text-primary); margin-bottom: 1rem; outline: none;">
             <p id="login-error-msg" class="hidden" style="color: var(--accent-danger); font-size: 0.875rem; text-align: center; margin-top: -0.5rem; margin-bottom: 1rem;">Senha incorreta. Tente novamente.</p>
             
@@ -285,6 +302,30 @@
         </div>
     </div>
     
+    <!-- Mobile Audit View -->
+    <div id="mobile-audit-container" class="hidden" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: var(--bg-base); z-index: 100000; overflow-y: auto; display: flex; flex-direction: column;">
+        <header style="padding: 1rem; background: var(--bg-surface-elevated); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 10;">
+            <h2 id="mobile-audit-title" style="margin: 0; font-size: 1.25rem;">Auditoria</h2>
+            <button class="btn-icon" id="btn-mobile-theme" style="font-size: 1.5rem; background: none; border: none; color: var(--text-primary);"><i class="fa-solid fa-moon"></i></button>
+        </header>
+        
+        <div id="mobile-audit-cooldown" class="hidden" style="padding: 1rem; margin: 1rem; background: rgba(245, 158, 11, 0.2); border: 1px solid var(--accent-warning); border-radius: 8px;">
+            <p style="color: var(--text-primary); font-weight: bold; margin-top: 0;"><i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-warning);"></i> Atenção</p>
+            <p style="color: var(--text-secondary); font-size: 0.9rem;" id="mobile-audit-cooldown-msg">Esta estante foi contada há menos de 10 dias.</p>
+            <button class="btn btn-primary" id="btn-mobile-cooldown-proceed" style="margin-top: 1rem; width: 100%; justify-content: center;">Prosseguir Mesmo Assim</button>
+        </div>
+
+        <div id="mobile-audit-content" style="padding: 1rem; padding-bottom: 6rem; flex: 1;">
+            <!-- Renderizado via JS -->
+        </div>
+
+        <footer style="padding: 1rem; background: var(--bg-surface-elevated); border-top: 1px solid var(--border-color); position: sticky; bottom: 0;">
+            <button class="btn btn-primary" id="btn-mobile-audit-finish" style="width: 100%; justify-content: center; font-size: 1.1rem; padding: 1rem;">
+                Assinar e Finalizar Contagem
+            </button>
+        </footer>
+    </div>
+
     <!-- Toast Notifications -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="app.js"></script>
