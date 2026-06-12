@@ -379,7 +379,15 @@ function renderFloorPlan() {
         label.textContent = aisle.name;
         el.appendChild(label);
         
-        // Alça de rotação apenas se estiver em modo edição E for o selecionado
+        // Verifica se está selecionado
+        const isSelected = selectedItems.find(si => si.item.id === aisle.id);
+        if (isSelected) {
+            el.classList.add('is-selected');
+            el.style.borderColor = 'var(--accent-warning)';
+            el.style.boxShadow = '0 0 15px rgba(245, 158, 11, 0.5)';
+        }
+        
+        // Alça de rotação apenas se estiver em modo edição E for o selecionado único
         if (isEditMode && selectedItem && selectedItem.item.id === aisle.id) {
             attachRotationHandle(el, aisle);
         }
@@ -514,6 +522,14 @@ function renderFloorPlan() {
         lodContainer.appendChild(tabsContainer);
         lodContainer.appendChild(contentContainer);
         if (initialLevelId) renderLODLevel(initialLevelId);
+        
+        // Verifica se está selecionado
+        const isSelectedRack = selectedItems.find(si => si.item.id === rack.id);
+        if (isSelectedRack) {
+            el.classList.add('is-selected');
+            el.style.borderColor = 'var(--accent-warning)';
+            el.style.boxShadow = '0 0 15px rgba(245, 158, 11, 0.5)';
+        }
         
         contentContainer.addEventListener('mousedown', (e) => e.stopPropagation());
         el.appendChild(lodContainer);
