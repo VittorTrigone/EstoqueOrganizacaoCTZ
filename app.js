@@ -1014,7 +1014,6 @@ function closeInspector() {
 
 // === SMART GUIDES (SNAPPING) ===
 const SNAP_THRESHOLD = 8; // pixels
-let isSnapEnabled = true;
 
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Control') isSnapEnabled = false;
