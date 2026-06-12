@@ -31,6 +31,7 @@ const defaultWarehouseData = {
 
 let warehouseData = null;
 let isEditMode = false;
+let isSnapEnabled = true;
 let selectedItem = null; // { item, type } - maintained for single selection logic compatibility
 let selectedItems = []; // Array of { item, type }
 let clipboard = []; // Array of copied objects
@@ -91,6 +92,7 @@ const dom = {
     toolbar: document.getElementById('editor-toolbar'),
     btnAddAisle: document.getElementById('btn-add-aisle'),
     btnAddRack: document.getElementById('btn-add-rack'),
+    btnToggleSnap: document.getElementById('btn-toggle-snap'),
     inspector: document.getElementById('rack-inspector'),
     btnCloseInspector: document.getElementById('btn-close-inspector'),
     inspectorContent: document.getElementById('inspector-content'),
@@ -1012,6 +1014,14 @@ function closeInspector() {
 
 // === SMART GUIDES (SNAPPING) ===
 const SNAP_THRESHOLD = 8; // pixels
+let isSnapEnabled = true;
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Control') isSnapEnabled = false;
+});
+document.addEventListener('keyup', (e) => {
+    if (e.key === 'Control') isSnapEnabled = true;
+});
 
 function clearSnapGuides() {
     document.querySelectorAll('.snap-guide-vertical, .snap-guide-horizontal').forEach(el => el.remove());
@@ -1020,6 +1030,8 @@ function clearSnapGuides() {
 function calculateSnapAndDrawGuides(targetId, proposedDx, proposedDy, proposedW = null, proposedH = null, resizeEdges = null) {
     clearSnapGuides();
     
+    if (!isSnapEnabled) return { dx: proposedDx, dy: proposedDy, w: proposedW, h: proposedH };
+
     const cw = dom.canvas.offsetWidth;
     const ch = dom.canvas.offsetHeight;
     
@@ -1091,9 +1103,7 @@ function calculateSnapAndDrawGuides(targetId, proposedDx, proposedDy, proposedW 
         const oBottom = ((other.y + other.h) / 100) * ch;
         const oCenterY = oTop + ((other.h / 100) * ch / 2);
         
-        // Só tenta o snap se o outro item estiver relativamente perto (max 250px)
-        const dist = Math.hypot(mCenterX - oCenterX, mCenterY - oCenterY);
-        if (dist > 250) continue;
+        // Removemos o limite de distância para que o snap funcione em qualquer nível de zoom
         
         if (!snappedX) {
             const hEdges = [oLeft, oRight, oCenterX];
@@ -1443,13 +1453,31 @@ function handleKeyboardShortcuts(e) {
     }
 }
 
-// Configuração de Eventos
 function setupEventListeners() {
     window.addEventListener('keydown', handleKeyboardShortcuts);
     dom.btnEditMode.addEventListener('click', toggleEditMode);
     dom.btnAddAisle.addEventListener('click', addAisle);
     dom.btnAddRack.addEventListener('click', addRack);
     dom.btnCloseInspector.addEventListener('click', closeInspector);
+    
+    if (dom.btnToggleSnap) {
+        dom.btnToggleSnap.addEventListener('click', () => {
+            isSnapEnabled = !isSnapEnabled;
+            if (isSnapEnabled) {
+                dom.btnToggleSnap.classList.add('active');
+                dom.btnToggleSnap.style.borderColor = 'var(--accent-primary)';
+                dom.btnToggleSnap.style.color = 'var(--accent-primary)';
+                dom.btnToggleSnap.style.opacity = '1';
+                dom.btnToggleSnap.innerHTML = '<i class="fa-solid fa-magnet"></i> Imã';
+            } else {
+                dom.btnToggleSnap.classList.remove('active');
+                dom.btnToggleSnap.style.borderColor = 'transparent';
+                dom.btnToggleSnap.style.color = 'var(--text-secondary)';
+                dom.btnToggleSnap.style.opacity = '0.7';
+                dom.btnToggleSnap.innerHTML = '<i class="fa-solid fa-magnet" style="text-decoration: line-through;"></i> Imã';
+            }
+        });
+    }
     
     dom.canvas.addEventListener('click', (e) => {
         if (isEditMode && e.target === dom.canvas && !hasMoved) {
