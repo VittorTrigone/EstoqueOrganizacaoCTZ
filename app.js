@@ -2481,7 +2481,7 @@ window.renderRackVisualizer = function() {
         labelContainer.style.display = 'flex';
         labelContainer.style.alignItems = 'center';
         labelContainer.style.gap = '0.5rem';
-        labelContainer.style.left = '-110px';
+        labelContainer.style.left = '-95px';
         
         const input = document.createElement('input');
         input.type = 'text';
