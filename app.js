@@ -1107,8 +1107,12 @@ function calculateSnapAndDrawGuides(targetId, proposedDx, proposedDy, proposedW 
                         if (proposedW === null) {
                             finalDx += diff;
                         } else {
-                            if (mEdgeObj.type === 1) finalW += diff; // mudando mRight
-                            else if (mEdgeObj.type === 0) finalDx += diff; // mudando mLeft
+                            if (mEdgeObj.type === 1) {
+                                finalW += diff; // mudando mRight
+                            } else if (mEdgeObj.type === 0) {
+                                finalDx += diff; // mudando mLeft
+                                finalW -= diff;  // Compensa a largura para manter o lado oposto parado
+                            }
                         }
                         drawVerticalGuide(oEdge);
                         snappedX = true;
@@ -1131,8 +1135,12 @@ function calculateSnapAndDrawGuides(targetId, proposedDx, proposedDy, proposedW 
                         if (proposedH === null) {
                             finalDy += diff;
                         } else {
-                            if (mEdgeObj.type === 1) finalH += diff; // mudando mBottom
-                            else if (mEdgeObj.type === 0) finalDy += diff; // mudando mTop
+                            if (mEdgeObj.type === 1) {
+                                finalH += diff; // mudando mBottom
+                            } else if (mEdgeObj.type === 0) {
+                                finalDy += diff; // mudando mTop
+                                finalH -= diff;  // Compensa a altura para manter o lado oposto parado
+                            }
                         }
                         drawHorizontalGuide(oEdge);
                         snappedY = true;
