@@ -2593,21 +2593,21 @@ window.renderRackVisualizer = function() {
                 saveData();
                 window.renderRackVisualizer();
                 
-                await window.syncOlistForStructuralChange(sourceLevel.id, 'level');
-                await window.syncOlistForStructuralChange(level.id, 'level');
+                await window.syncLocationToOlist(itemToMove.sku, itemToMove.olistId || window.getOlistIdForSKU(itemToMove.sku));
                 
             } else if (data.type === 'new') {
                 if (!level.items) level.items = [];
-                level.items.push({
+                const newItem = {
                     sku: data.olistData.sku,
                     name: data.olistData.name,
                     olistId: data.olistData.id
-                });
+                };
+                level.items.push(newItem);
                 
                 saveData();
                 window.renderRackVisualizer();
                 
-                await window.syncOlistForStructuralChange(level.id, 'level');
+                await window.syncLocationToOlist(newItem.sku, newItem.olistId || window.getOlistIdForSKU(newItem.sku));
             }
         });
         
@@ -2638,10 +2638,10 @@ window.deleteItemFromVisualizer = async function(levelId, itemIdx, e) {
     const level = rack.levels.find(l => l.id === levelId);
     
     if (confirm(`Remover item ${level.items[itemIdx].sku}?`)) {
-        level.items.splice(itemIdx, 1);
+        const deletedItem = level.items.splice(itemIdx, 1)[0];
         saveData();
         window.renderRackVisualizer();
-        await window.syncOlistForStructuralChange(levelId, 'level');
+        await window.syncLocationToOlist(deletedItem.sku, deletedItem.olistId || window.getOlistIdForSKU(deletedItem.sku));
     }
 };
 
