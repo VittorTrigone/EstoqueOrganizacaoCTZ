@@ -675,6 +675,12 @@ function openEditorProperties(id, type) {
                 <input type="text" id="prop-name" value="${item.name}" style="width:100%; padding:0.5rem; border-radius:4px; border:1px solid var(--border-color); background:var(--bg-base); color:var(--text-primary);">
             </div>
             
+            ${type === 'rack' ? `
+                <button class="btn btn-secondary" onclick="window.generateQRCode('${item.id}')" style="width:100%; justify-content:center; margin-bottom: 1rem; border-color: var(--accent-primary); color: var(--text-primary);">
+                    <i class="fa-solid fa-qrcode"></i> Gerar QR Code (Auditoria)
+                </button>
+            ` : ''}
+
             <button class="btn" id="btn-delete" style="width:100%; background:var(--accent-danger); color:white;">
                 <i class="fa-solid fa-trash"></i> Excluir
             </button>
