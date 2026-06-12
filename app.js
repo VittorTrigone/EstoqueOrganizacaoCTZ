@@ -1167,6 +1167,7 @@ function setupInteractJs() {
                     });
                 },
                 move(event) {
+                    hasMoved = true;
                     const target = event.target;
                     const type = target.dataset.type;
                     const id = target.dataset.id;
@@ -1443,7 +1444,7 @@ function setupEventListeners() {
     dom.btnCloseInspector.addEventListener('click', closeInspector);
     
     dom.canvas.addEventListener('click', (e) => {
-        if (isEditMode && e.target === dom.canvas) {
+        if (isEditMode && e.target === dom.canvas && !hasMoved) {
             closeInspector();
         }
     });
@@ -1665,6 +1666,8 @@ let hasMoved = false; // Diferencia clique de drag
 let startMouseX, startMouseY, initialPanX, initialPanY;
 
 dom.containerFloorplan.addEventListener('mousedown', (e) => {
+    hasMoved = false;
+    
     // No modo edição, apenas elementos JÁ SELECIONADOS ou a alça de rotação impedem o pan (para poderem ser arrastados).
     if (isEditMode && e.button !== 1) {
         if (e.target.closest('.rack.is-selected, .aisle.is-selected, .rotate-handle')) {
@@ -1673,7 +1676,6 @@ dom.containerFloorplan.addEventListener('mousedown', (e) => {
     }
     
     isPanning = true;
-    hasMoved = false;
     
     startMouseX = e.clientX;
     startMouseY = e.clientY;
