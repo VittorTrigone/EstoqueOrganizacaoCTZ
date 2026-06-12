@@ -67,6 +67,7 @@ window.handleItemSelection = function(e, item, type, el) {
     selectedItems.forEach(si => {
         const targetEl = document.querySelector(`.${si.type}[data-id="${si.item.id}"]`);
         if (targetEl) {
+            targetEl.classList.add('is-selected');
             targetEl.style.borderColor = 'var(--accent-warning)';
             targetEl.style.boxShadow = '0 0 15px rgba(245, 158, 11, 0.5)';
         }
@@ -383,7 +384,8 @@ function renderFloorPlan() {
             attachRotationHandle(el, aisle);
         }
         
-        el.addEventListener('mousedown', (e) => {
+        el.addEventListener('click', (e) => {
+            if (hasMoved) return;
             if (isEditMode) {
                 handleItemSelection(e, aisle, 'aisle', el);
             }
@@ -517,14 +519,11 @@ function renderFloorPlan() {
         el.appendChild(lodContainer);
         // --- FIM LOD ---
 
-        el.addEventListener('mousedown', (e) => {
+        el.addEventListener('click', (e) => {
+            if (hasMoved) return;
             if (isEditMode) {
                 handleItemSelection(e, rack, 'rack', el);
-            }
-        });
-        
-        el.addEventListener('click', (e) => {
-            if (!isEditMode && !hasMoved) {
+            } else {
                 openInspector(rack.id);
                 
                 // Remove highlight das outras
@@ -982,6 +981,7 @@ function closeInspector() {
     }
     // Remove alça visual e highlight se tiver deselecionado
     document.querySelectorAll('.rack, .aisle').forEach(r => {
+        r.classList.remove('is-selected');
         r.style.borderColor = 'var(--border-color)';
         r.style.boxShadow = 'var(--shadow-md)';
     });
@@ -1128,20 +1128,12 @@ function calculateSnapAndDrawGuides(targetId, proposedDx, proposedDy, proposedW 
 
 // === INTERACT.JS (ARRASTAR EM PORCENTAGEM) ===
 function setupInteractJs() {
-    interact('.interactable')
+    interact('.interactable.is-selected')
         .draggable({
             enabled: false, 
             ignoreFrom: '.rotate-handle, .rack-lod-container',
             listeners: {
                 start(event) { 
-                    const id = event.target.dataset.id;
-                    const type = event.target.dataset.type;
-                    const exists = selectedItems.find(si => si.item.id === id);
-                    if (!exists) {
-                        const list = type === 'aisle' ? warehouseData.aisles : warehouseData.racks;
-                        const item = list.find(i => i.id === id);
-                        handleItemSelection({shiftKey: false}, item, type, event.target);
-                    }
                     
                     selectedItems.forEach(si => {
                         const el = document.querySelector(`.${si.type}[data-id="${si.item.id}"]`);
@@ -1298,8 +1290,8 @@ function setupInteractJs() {
         });
 
     dom.btnEditMode.addEventListener('click', () => {
-        interact('.interactable').draggable({ enabled: isEditMode });
-        interact('.interactable').resizable({ enabled: isEditMode });
+        interact('.interactable.is-selected').draggable({ enabled: isEditMode });
+        interact('.interactable.is-selected').resizable({ enabled: isEditMode });
         interact('.rack-inspector').resizable({ enabled: isEditMode });
     });
 
@@ -1651,10 +1643,11 @@ let hasMoved = false; // Diferencia clique de drag
 let startMouseX, startMouseY, initialPanX, initialPanY;
 
 dom.containerFloorplan.addEventListener('mousedown', (e) => {
-    // Se estiver no Modo Edição, a estante absorve o clique para ser arrastada/girada pelo interact.js.
-    // Então, no modo edição, apenas o botão do meio pode mover a tela quando sobre uma estante.
-    if (isEditMode && e.button !== 1 && e.target.closest('.rack, .aisle, .rotate-handle')) {
-        return;
+    // No modo edição, apenas elementos JÁ SELECIONADOS ou a alça de rotação impedem o pan (para poderem ser arrastados).
+    if (isEditMode && e.button !== 1) {
+        if (e.target.closest('.rack.is-selected, .aisle.is-selected, .rotate-handle')) {
+            return;
+        }
     }
     
     isPanning = true;
@@ -1705,14 +1698,15 @@ dom.containerFloorplan.addEventListener('wheel', (e) => {
     window.changeZoom(delta, e.clientX, e.clientY);
 }, { passive: false });
 
-// Deselecionar e fechar inspetor ao clicar no fundo
+// Deselecionar e fechar inspetor ao clicar no fundo ou clicar e arrastar (pan)
 dom.containerFloorplan.addEventListener('click', (e) => {
-    if ((e.target === dom.canvas || e.target === dom.containerFloorplan) && !hasMoved) {
-        closeInspector();
-        document.querySelectorAll('.rack, .aisle').forEach(r => {
-            r.style.borderColor = 'var(--border-color)';
-            r.style.boxShadow = 'var(--shadow-md)';
-        });
+    if ((e.target === dom.canvas || e.target === dom.containerFloorplan || e.target.closest('.rack:not(.is-selected), .aisle:not(.is-selected)')) && !hasMoved) {
+        // Se clicar no fundo ou num item vazio para focar, mas não mover.
+        // No modo edição, clicando num item não-selecionado, o click listener do próprio item vai ativar a seleção dele.
+        // Então não queremos fechar a seleção globalmente se o clique for num elemento interactable.
+        if (e.target === dom.canvas || e.target === dom.containerFloorplan) {
+            closeInspector();
+        }
     }
 });
 
