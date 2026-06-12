@@ -2439,11 +2439,53 @@ window.renderRackVisualizer = function() {
         shelf.className = 'shelf-level-2d';
         shelf.dataset.levelId = level.id;
         
-        // Label
-        const label = document.createElement('div');
-        label.className = 'shelf-level-label';
-        label.innerText = level.name;
-        shelf.appendChild(label);
+        // Label and Controls
+        const labelContainer = document.createElement('div');
+        labelContainer.className = 'shelf-level-label';
+        labelContainer.style.display = 'flex';
+        labelContainer.style.alignItems = 'center';
+        labelContainer.style.gap = '0.5rem';
+        labelContainer.style.left = '-110px';
+        
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = level.name;
+        input.style.width = '60px';
+        input.style.background = 'transparent';
+        input.style.border = '1px dashed var(--border-color)';
+        input.style.color = 'var(--text-primary)';
+        input.style.fontWeight = 'bold';
+        input.style.textAlign = 'center';
+        
+        input.addEventListener('change', (e) => {
+            const newName = e.target.value.trim();
+            if (newName && newName !== level.name) {
+                level.name = newName;
+                saveData();
+                window.syncOlistForStructuralChange(level.id, 'level');
+            }
+        });
+        
+        const btnDel = document.createElement('button');
+        btnDel.innerHTML = '<i class="fa-solid fa-trash"></i>';
+        btnDel.style.background = 'none';
+        btnDel.style.border = 'none';
+        btnDel.style.color = 'var(--accent-danger)';
+        btnDel.style.cursor = 'pointer';
+        btnDel.title = 'Excluir Nível';
+        
+        btnDel.addEventListener('click', async () => {
+            if (confirm(`Tem certeza que deseja excluir o ${level.name} e todos os seus itens?`)) {
+                rack.levels.splice(idx, 1);
+                saveData();
+                window.renderRackVisualizer();
+                await window.syncOlistForStructuralChange(rack.id, 'rack');
+            }
+        });
+        
+        labelContainer.appendChild(input);
+        labelContainer.appendChild(btnDel);
+        shelf.appendChild(labelContainer);
         
         // Items
         if (level.items) {
@@ -2533,7 +2575,7 @@ window.addLevelToRackVisualizer = function() {
     const nextNum = rack.levels.length + 1;
     rack.levels.push({
         id: 'l-' + Date.now(),
-        name: 'Nível ' + nextNum,
+        name: 'N' + nextNum,
         capacity: 1000,
         currentLoad: 0,
         items: []
@@ -2577,7 +2619,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (!response.ok) throw new Error('Erro API');
                     
                     const responseData = await response.json();
-                    const itens = responseData.data || [];
+                    const itens = responseData.itens || [];
                     
                     rvSearchResults.innerHTML = '';
                     if (itens.length === 0) {
@@ -2590,7 +2632,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         resultDiv.className = 'rv-olist-item';
                         resultDiv.draggable = true;
                         
-                        const nomeStr = item.nome || item.name || 'Sem Nome';
+                        const nomeStr = item.descricao || 'Sem Nome';
                         const skuStr = item.sku || 'Sem SKU';
                         
                         resultDiv.innerHTML = `
