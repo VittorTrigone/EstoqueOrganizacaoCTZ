@@ -47,8 +47,13 @@ window.handleItemSelection = function(e, item, type, el) {
             selectedItems.push({ item, type });
         }
     } else {
-        const exists = selectedItems.find(si => si.item.id === item.id);
-        if (!exists) {
+        const index = selectedItems.findIndex(si => si.item.id === item.id);
+        if (index > -1) {
+            // Clicou num item que já estava selecionado (sem shift) -> Deseleciona
+            selectedItems = [];
+            closeInspector();
+            return;
+        } else {
             selectedItems = [{ item, type }];
         }
     }
@@ -60,6 +65,7 @@ window.handleItemSelection = function(e, item, type, el) {
     
     // Highlight da UI no canvas
     document.querySelectorAll('.rack, .aisle').forEach(r => {
+        r.classList.remove('is-selected');
         r.style.borderColor = 'var(--border-color)';
         r.style.boxShadow = 'var(--shadow-md)';
     });
