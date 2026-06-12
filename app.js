@@ -446,7 +446,8 @@ function renderFloorPlan() {
                 return;
             }
             
-            level.items.forEach((item, index) => {
+            const itemsToRender = level.items.map((item, index) => ({ item, index })).reverse();
+            itemsToRender.forEach(({ item, index }) => {
                 const itemDiv = document.createElement('div');
                 itemDiv.className = 'lod-item';
                 itemDiv.draggable = true;
