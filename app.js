@@ -2512,10 +2512,15 @@ window.renderRackVisualizer = function() {
         
         btnDel.addEventListener('click', async () => {
             if (confirm(`Tem certeza que deseja excluir o ${level.name} e todos os seus itens?`)) {
+                const itemsToClear = level.items ? [...level.items] : [];
                 rack.levels.splice(idx, 1);
                 saveData();
                 window.renderRackVisualizer();
-                await window.syncOlistForStructuralChange(rack.id, 'rack');
+                
+                // Limpar no Olist os itens que foram deletados com o nível
+                for (let item of itemsToClear) {
+                    await window.syncLocationToOlist(item.sku, item.olistId || window.getOlistIdForSKU(item.sku));
+                }
             }
         });
         
@@ -2582,13 +2587,36 @@ window.renderRackVisualizer = function() {
             if (!dataStr) return;
             const data = JSON.parse(dataStr);
             
+            // Determinar o índice de soltura baseado no mouse X
+            const boxes = Array.from(shelf.querySelectorAll('.product-box-2d'));
+            let dropIndex = boxes.length;
+            for (let i = 0; i < boxes.length; i++) {
+                const rect = boxes[i].getBoundingClientRect();
+                if (e.clientX < rect.left + rect.width / 2) {
+                    dropIndex = i;
+                    break;
+                }
+            }
+            
             if (data.type === 'existing') {
-                if (data.levelId === level.id) return; // Same shelf
+                if (data.levelId === level.id) {
+                    // Reordenar na mesma prateleira
+                    const currentIdx = data.itemIdx;
+                    if (currentIdx === dropIndex || (currentIdx === dropIndex - 1 && dropIndex > 0)) return; // Mesma posição
+                    
+                    const itemToMove = level.items.splice(currentIdx, 1)[0];
+                    const newIdx = dropIndex > currentIdx ? dropIndex - 1 : dropIndex;
+                    level.items.splice(newIdx, 0, itemToMove);
+                    
+                    saveData();
+                    window.renderRackVisualizer();
+                    return; // Sem necessidade de sincronizar com Olist pois não afeta a string de localização
+                }
                 
                 const sourceLevel = rack.levels.find(l => l.id === data.levelId);
                 const itemToMove = sourceLevel.items.splice(data.itemIdx, 1)[0];
                 if (!level.items) level.items = [];
-                level.items.push(itemToMove);
+                level.items.splice(dropIndex, 0, itemToMove);
                 
                 saveData();
                 window.renderRackVisualizer();
