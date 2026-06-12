@@ -548,7 +548,7 @@ function renderFloorPlan() {
             if (isEditMode) {
                 handleItemSelection(e, rack, 'rack', el);
             } else {
-                openInspector(rack.id);
+                window.openRackVisualizer(rack.id);
                 
                 // Remove highlight das outras
                 document.querySelectorAll('.rack, .aisle').forEach(r => {
@@ -2394,4 +2394,229 @@ document.addEventListener('DOMContentLoaded', () => {
     
     setInterval(checkOlistConnection, 5000);
     checkOlistConnection();
+});
+
+// === 2D RACK VISUALIZER LOGIC ===
+let currentRackVisualizerId = null;
+
+window.openRackVisualizer = function(rackId) {
+    currentRackVisualizerId = rackId;
+    const rack = warehouseData.racks.find(r => r.id === rackId);
+    if (!rack) return;
+    
+    const parentAisle = findParentAisleForRack(rack);
+    const rvRackName = document.getElementById('rv-rack-name');
+    const rvRackAisle = document.getElementById('rv-rack-aisle');
+    if (rvRackName) rvRackName.innerText = `Estante ${rack.name}`;
+    if (rvRackAisle) rvRackAisle.innerText = parentAisle ? `(Corredor: ${parentAisle.name})` : '(Sem Corredor)';
+    
+    window.renderRackVisualizer();
+    const modal = document.getElementById('rack-visualizer-modal');
+    if(modal) modal.classList.remove('hidden');
+};
+
+window.closeRackVisualizer = function() {
+    currentRackVisualizerId = null;
+    const modal = document.getElementById('rack-visualizer-modal');
+    if(modal) modal.classList.add('hidden');
+};
+
+window.renderRackVisualizer = function() {
+    if (!currentRackVisualizerId) return;
+    const rack = warehouseData.racks.find(r => r.id === currentRackVisualizerId);
+    const container = document.getElementById('rv-shelves-container');
+    if(!container) return;
+    container.innerHTML = '';
+    
+    if (!rack.levels || rack.levels.length === 0) {
+        container.innerHTML = '<div style="color: var(--text-secondary); text-align: center; margin-top: 2rem;">Nenhum nível criado ainda. Clique em "+ Adicionar Nível" acima.</div>';
+        return;
+    }
+    
+    // Níveis renderizados de baixo para cima (reverse visual pelo flex column-reverse)
+    rack.levels.forEach((level, idx) => {
+        const shelf = document.createElement('div');
+        shelf.className = 'shelf-level-2d';
+        shelf.dataset.levelId = level.id;
+        
+        // Label
+        const label = document.createElement('div');
+        label.className = 'shelf-level-label';
+        label.innerText = level.name;
+        shelf.appendChild(label);
+        
+        // Items
+        if (level.items) {
+            level.items.forEach((item, itemIdx) => {
+                const box = document.createElement('div');
+                box.className = 'product-box-2d';
+                box.draggable = true;
+                box.dataset.levelId = level.id;
+                box.dataset.itemIdx = itemIdx;
+                
+                box.innerHTML = `
+                    <div class="sku" title="${item.sku}">${item.sku}</div>
+                    <div class="name" title="${item.name}">${item.name || ''}</div>
+                    <button class="btn-delete-item" onclick="window.deleteItemFromVisualizer('${level.id}', ${itemIdx}, event)" title="Remover"><i class="fa-solid fa-trash"></i></button>
+                `;
+                
+                box.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.setData('text/plain', JSON.stringify({
+                        type: 'existing',
+                        levelId: level.id,
+                        itemIdx: itemIdx
+                    }));
+                    setTimeout(() => box.classList.add('dragging'), 0);
+                });
+                
+                box.addEventListener('dragend', () => box.classList.remove('dragging'));
+                
+                shelf.appendChild(box);
+            });
+        }
+        
+        // Drag over / drop logic for the shelf
+        shelf.addEventListener('dragover', e => {
+            e.preventDefault();
+            shelf.classList.add('drag-over');
+        });
+        
+        shelf.addEventListener('dragleave', () => {
+            shelf.classList.remove('drag-over');
+        });
+        
+        shelf.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            shelf.classList.remove('drag-over');
+            
+            const dataStr = e.dataTransfer.getData('text/plain');
+            if (!dataStr) return;
+            const data = JSON.parse(dataStr);
+            
+            if (data.type === 'existing') {
+                if (data.levelId === level.id) return; // Same shelf
+                
+                const sourceLevel = rack.levels.find(l => l.id === data.levelId);
+                const itemToMove = sourceLevel.items.splice(data.itemIdx, 1)[0];
+                if (!level.items) level.items = [];
+                level.items.push(itemToMove);
+                
+                saveData();
+                window.renderRackVisualizer();
+                
+                await window.syncOlistForStructuralChange(sourceLevel.id, 'item');
+                await window.syncOlistForStructuralChange(level.id, 'item');
+                
+            } else if (data.type === 'new') {
+                if (!level.items) level.items = [];
+                level.items.push({
+                    sku: data.olistData.sku,
+                    name: data.olistData.name,
+                    olistId: data.olistData.id
+                });
+                
+                saveData();
+                window.renderRackVisualizer();
+                
+                await window.syncOlistForStructuralChange(level.id, 'item');
+            }
+        });
+        
+        container.appendChild(shelf);
+    });
+};
+
+window.addLevelToRackVisualizer = function() {
+    if (!currentRackVisualizerId) return;
+    const rack = warehouseData.racks.find(r => r.id === currentRackVisualizerId);
+    if (!rack.levels) rack.levels = [];
+    const nextNum = rack.levels.length + 1;
+    rack.levels.push({
+        id: 'l-' + Date.now(),
+        name: 'Nível ' + nextNum,
+        capacity: 1000,
+        currentLoad: 0,
+        items: []
+    });
+    saveData();
+    window.renderRackVisualizer();
+    window.syncOlistForStructuralChange(rack.levels[rack.levels.length-1].id, 'level');
+};
+
+window.deleteItemFromVisualizer = async function(levelId, itemIdx, e) {
+    e.stopPropagation();
+    const rack = warehouseData.racks.find(r => r.id === currentRackVisualizerId);
+    const level = rack.levels.find(l => l.id === levelId);
+    
+    if (confirm(`Remover item ${level.items[itemIdx].sku}?`)) {
+        level.items.splice(itemIdx, 1);
+        saveData();
+        window.renderRackVisualizer();
+        await window.syncOlistForStructuralChange(levelId, 'item');
+    }
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    const rvSearchInput = document.getElementById('rv-search-input');
+    const rvSearchResults = document.getElementById('rv-search-results');
+    let rvSearchTimeout = null;
+
+    if (rvSearchInput) {
+        rvSearchInput.addEventListener('input', (e) => {
+            clearTimeout(rvSearchTimeout);
+            const termo = e.target.value.trim();
+            if (!termo) {
+                rvSearchResults.innerHTML = '<div style="color: var(--text-secondary); text-align: center; margin-top: 2rem;"><i class="fa-solid fa-box-open" style="font-size: 2rem; margin-bottom: 1rem; opacity: 0.5;"></i><br>Use a busca acima para encontrar produtos.</div>';
+                return;
+            }
+            
+            rvSearchTimeout = setTimeout(async () => {
+                try {
+                    rvSearchResults.innerHTML = '<div style="color: var(--text-secondary); text-align: center; padding: 1rem;">Buscando...</div>';
+                    const response = await fetch(`${API_BASE_URL}/api/produtos?pesquisa=${encodeURIComponent(termo)}`);
+                    if (!response.ok) throw new Error('Erro API');
+                    
+                    const responseData = await response.json();
+                    const itens = responseData.data || [];
+                    
+                    rvSearchResults.innerHTML = '';
+                    if (itens.length === 0) {
+                        rvSearchResults.innerHTML = '<div style="color: var(--text-secondary); text-align: center; padding: 1rem;">Nenhum produto encontrado.</div>';
+                        return;
+                    }
+                    
+                    itens.forEach(item => {
+                        const resultDiv = document.createElement('div');
+                        resultDiv.className = 'rv-olist-item';
+                        resultDiv.draggable = true;
+                        
+                        const nomeStr = item.nome || item.name || 'Sem Nome';
+                        const skuStr = item.sku || 'Sem SKU';
+                        
+                        resultDiv.innerHTML = `
+                            <div style="background: var(--accent-primary); color: white; border-radius: 4px; padding: 0.5rem; display: flex; align-items: center; justify-content: center;">
+                                <i class="fa-solid fa-box"></i>
+                            </div>
+                            <div style="flex: 1; overflow: hidden;">
+                                <div style="font-weight: bold; font-size: 0.875rem; color: var(--text-primary);">${skuStr}</div>
+                                <div style="font-size: 0.75rem; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${nomeStr}</div>
+                            </div>
+                            <div style="color: var(--text-secondary);"><i class="fa-solid fa-grip-vertical"></i></div>
+                        `;
+                        
+                        resultDiv.addEventListener('dragstart', (evt) => {
+                            evt.dataTransfer.setData('text/plain', JSON.stringify({
+                                type: 'new',
+                                olistData: { id: item.id, sku: skuStr, name: nomeStr }
+                            }));
+                        });
+                        
+                        rvSearchResults.appendChild(resultDiv);
+                    });
+                } catch (err) {
+                    rvSearchResults.innerHTML = '<div style="color: var(--accent-danger); text-align: center; padding: 1rem;">Erro ao buscar produtos.</div>';
+                }
+            }, 500);
+        });
+    }
 });
