@@ -154,8 +154,13 @@ app.get('/api/debug-estoque/:id', async (req, res) => {
 app.get('/api/produtos', (req, res) => {
     const termoPesquisa = (req.query.pesquisa || '').toLowerCase().trim();
     
-    // Filtra apenas produtos ativos (situação 'A' no Tiny)
-    const produtosAtivos = catalogoEmMemoria.filter(p => !p.situacao || p.situacao === 'A');
+    // Filtra apenas produtos ativos e que não são variações (nem pai, nem filho)
+    const produtosAtivos = catalogoEmMemoria.filter(p => {
+        const ativo = !p.situacao || p.situacao === 'A';
+        const isPai = p.tipoVariacao === 'P' || p.tipo_variacao === 'P' || p.classe_produto === 'P';
+        const isFilho = p.tipoVariacao === 'V' || p.tipo_variacao === 'V' || p.idProdutoPai > 0 || p.id_produto_pai > 0 || p.classe_produto === 'V';
+        return ativo && !isPai && !isFilho;
+    });
 
     if (!termoPesquisa) {
         return res.json({ itens: produtosAtivos.slice(0, 100) });
@@ -176,8 +181,13 @@ app.post('/api/produtos/batch', async (req, res) => {
         return res.json({ itens: [] });
     }
     
-    // Filtra apenas ativos, senão SKUs duplicados e excluídos vão sobrescrever o estoque real no front
-    const produtosAtivos = catalogoEmMemoria.filter(p => !p.situacao || p.situacao === 'A');
+    // Filtra apenas ativos e que não são variações
+    const produtosAtivos = catalogoEmMemoria.filter(p => {
+        const ativo = !p.situacao || p.situacao === 'A';
+        const isPai = p.tipoVariacao === 'P' || p.tipo_variacao === 'P' || p.classe_produto === 'P';
+        const isFilho = p.tipoVariacao === 'V' || p.tipo_variacao === 'V' || p.idProdutoPai > 0 || p.id_produto_pai > 0 || p.classe_produto === 'V';
+        return ativo && !isPai && !isFilho;
+    });
     const resultados = produtosAtivos.filter(p => skus.includes(p.sku));
     
     let config = await lerConfig();
