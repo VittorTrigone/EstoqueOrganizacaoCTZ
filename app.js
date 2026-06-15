@@ -177,7 +177,11 @@ async function loadData() {
 
 async function saveData() {
     // Mantém o backup no localStorage por segurança
-    localStorage.setItem('estoquepro_data', JSON.stringify(warehouseData));
+    try {
+        localStorage.setItem('estoquepro_data', JSON.stringify(warehouseData));
+    } catch(e) {
+        console.warn('Não foi possível salvar no localStorage (limite excedido), mas o Supabase continuará salvando:', e);
+    }
     
     // Salva na nuvem
     try {
@@ -3251,6 +3255,22 @@ window.startMobileAudit = async function(rackId) {
             mobileSearchInput.value = '';
             mobileNewQty.value = '1';
         };
+    }
+
+    // --- INICIALIZA THEME ---
+    const btnMobileTheme = document.getElementById('btn-mobile-theme');
+    if (btnMobileTheme && !btnMobileTheme.hasAttribute('data-theme-listener')) {
+        btnMobileTheme.setAttribute('data-theme-listener', 'true');
+        btnMobileTheme.addEventListener('click', () => {
+            const current = document.documentElement.getAttribute('data-theme');
+            if (current === 'light') {
+                document.documentElement.removeAttribute('data-theme');
+                btnMobileTheme.innerHTML = '<i class="fa-solid fa-moon"></i>';
+            } else {
+                document.documentElement.setAttribute('data-theme', 'light');
+                btnMobileTheme.innerHTML = '<i class="fa-solid fa-sun"></i>';
+            }
+        });
     }
 
     // --- LOGICA DE ASSINATURA CANVAS ---

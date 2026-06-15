@@ -30,6 +30,20 @@
     --transition-normal: 0.3s ease;
 }
 
+[data-theme='light'] {
+    --bg-base: #f8fafc;
+    --bg-surface: #ffffff;
+    --bg-surface-elevated: #f1f5f9;
+    
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    
+    --border-color: #cbd5e1;
+}
+
+input, select, textarea {
+    font-size: 16px !important; /* Prevents iOS auto-zoom */
+}
 * {
     margin: 0;
     padding: 0;
