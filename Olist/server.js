@@ -199,16 +199,12 @@ app.post('/api/produtos/batch', async (req, res) => {
         return res.json({ itens: [] });
     }
     
-    // Filtra apenas produtos ativos e oculta os produtos "Pai" (pois as variações é que vão para a prateleira)
-    const produtosAtivos = catalogoEmMemoria.filter(p => {
-        const ativo = !p.situacao || p.situacao === 'A';
-        const isPai = p.tipoVariacao === 'P' || p.tipo_variacao === 'P' || p.classe_produto === 'P';
-        return ativo && !isPai;
-    });
-    
     // Normalize skus array to lowercase for comparison
     const lowerSkus = skus.map(s => String(s).toLowerCase().trim());
-    const resultados = produtosAtivos.filter(p => lowerSkus.includes(String(p.sku || '').toLowerCase().trim()));
+    
+    // Busca os produtos no catálogo em memória sem filtrar por 'ativo' ou 'pai',
+    // pois se o usuário tem o produto na estante, ele quer ver o estoque dele de qualquer forma.
+    const resultados = catalogoEmMemoria.filter(p => lowerSkus.includes(String(p.sku || '').toLowerCase().trim()));
     
     let config = await lerConfig();
     if (!config || !config.access_token) {
