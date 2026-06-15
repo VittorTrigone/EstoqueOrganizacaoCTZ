@@ -2168,6 +2168,16 @@ window.calculateOlistLocationString = function(sku, simulatedPlacement = null) {
 };
 
 window.syncLocationToOlist = async function(sku, olistId) {
+    if (!olistId) {
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/produtos?pesquisa=${encodeURIComponent(sku)}`);
+            const data = await res.json();
+            const item = (data.itens || []).find(i => String(i.sku).toLowerCase() === String(sku).toLowerCase());
+            if (item) olistId = item.id;
+        } catch(e) {
+            console.error("Erro ao buscar olistId para sync", e);
+        }
+    }
     if (!olistId) return;
     const newLocation = window.calculateOlistLocationString(sku);
     try {
@@ -3061,6 +3071,7 @@ window.startMobileAudit = async function(rackId) {
         cooldownEl.classList.add('hidden');
         contentEl.classList.remove('hidden');
         finishBtn.classList.remove('hidden');
+        if (window.resizeAuditCanvas) setTimeout(window.resizeAuditCanvas, 100);
     };
 
     // Calculate "Estoque Existente" (Stock in all OTHER racks)
@@ -3096,7 +3107,7 @@ window.startMobileAudit = async function(rackId) {
                 if (!skuGroups[item.sku]) {
                     skuGroups[item.sku] = { name: item.name, count: 0 };
                 }
-                skuGroups[item.sku].count++;
+                skuGroups[item.sku].count += (item.qty || 1);
             });
         }
         
@@ -3299,6 +3310,7 @@ window.startMobileAudit = async function(rackId) {
         ctx.lineWidth = 3;
         ctx.strokeStyle = '#000'; // Black signature
     };
+    window.resizeAuditCanvas = resizeCanvas;
     // Need a tiny delay for layout to settle
     setTimeout(resizeCanvas, 100);
 
