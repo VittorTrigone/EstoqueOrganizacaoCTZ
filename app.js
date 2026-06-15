@@ -1675,12 +1675,19 @@ window.renderAuditoriasList = async function() {
                 novosHtml = `
                     <div style="margin-top: 1rem; padding: 0.75rem; background: rgba(16, 185, 129, 0.1); border: 1px solid var(--accent-success); border-radius: 4px;">
                         <div style="color: var(--accent-success); font-weight: bold; font-size: 0.85rem; margin-bottom: 0.5rem;"><i class="fa-solid fa-plus-circle"></i> Produtos Novos Encontrados:</div>
-                        ${audit.produtos_adicionados.map(it => `
+                        ${audit.produtos_adicionados.map(it => {
+                            let levelName = 'Nível Desconhecido';
+                            if (foundRack && foundRack.levels) {
+                                const lvl = foundRack.levels.find(l => l.id === it.levelId);
+                                if (lvl) levelName = lvl.name;
+                            }
+                            return `
                             <div style="font-size: 0.85rem; display: flex; justify-content: space-between;">
-                                <span>${it.sku}</span>
+                                <span>${it.sku} <span style="color:var(--text-secondary)">(${levelName})</span></span>
                                 <span>Qtd: ${it.quantidade}</span>
                             </div>
-                        `).join('')}
+                            `;
+                        }).join('')}
                     </div>
                 `;
             }
@@ -3379,6 +3386,12 @@ window.startMobileAudit = async function(rackId) {
                 const level = rack.levels.find(l => l.id === prod.levelId);
                 if (level) {
                     level.items.push({ sku: prod.sku, name: prod.name, qty: prod.quantidade });
+                }
+                
+                // Sincroniza a localização do produto recém adicionado lá no Tiny/Olist
+                const olistIdToUse = window.getOlistIdForSKU(prod.sku);
+                if (olistIdToUse) {
+                    window.syncLocationToOlist(prod.sku, olistIdToUse).catch(console.error);
                 }
             });
 
