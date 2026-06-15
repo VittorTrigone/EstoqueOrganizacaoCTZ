@@ -205,7 +205,10 @@ app.post('/api/produtos/batch', async (req, res) => {
         const isPai = p.tipoVariacao === 'P' || p.tipo_variacao === 'P' || p.classe_produto === 'P';
         return ativo && !isPai;
     });
-    const resultados = produtosAtivos.filter(p => skus.includes(p.sku));
+    
+    // Normalize skus array to lowercase for comparison
+    const lowerSkus = skus.map(s => String(s).toLowerCase().trim());
+    const resultados = produtosAtivos.filter(p => lowerSkus.includes(String(p.sku || '').toLowerCase().trim()));
     
     let config = await lerConfig();
     if (!config || !config.access_token) {
