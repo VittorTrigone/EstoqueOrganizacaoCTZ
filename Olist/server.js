@@ -83,50 +83,59 @@ async function renovarToken() {
 
 async function sincronizarCatalogo() {
     console.log('\n📥 Iniciando download do catálogo...');
-    let config = await lerConfig();
-    
-    if (!config.access_token || !config.refresh_token) {
-        console.log('⚠️ Tokens de acesso ausentes. A sincronização do catálogo foi suspensa até que o OAuth seja feito.');
-        return;
-    }
-
-    let offset = 0;
-    const limit = 100;
-    let todosOsProdutos = [];
-    let temMaisPaginas = true;
-
-    while(temMaisPaginas) {
-        const url = `https://erp.tiny.com.br/public-api/v3/produtos?limit=${limit}&offset=${offset}`;
-        let resposta = await fetch(url, { 
-            headers: { 'Authorization': `Bearer ${config.access_token}` }
-        });
+    try {
+        let config = await lerConfig();
         
-        if (resposta.status === 401) {
-            config.access_token = await renovarToken();
-            resposta = await fetch(url, { 
+        if (!config.access_token || !config.refresh_token) {
+            console.log('⚠️ Tokens de acesso ausentes. A sincronização do catálogo foi suspensa até que o OAuth seja feito.');
+            return;
+        }
+
+        let offset = 0;
+        const limit = 100;
+        let todosOsProdutos = [];
+        let temMaisPaginas = true;
+
+        while(temMaisPaginas) {
+            const url = `https://erp.tiny.com.br/public-api/v3/produtos?limit=${limit}&offset=${offset}`;
+            let resposta = await fetch(url, { 
                 headers: { 'Authorization': `Bearer ${config.access_token}` }
             });
-        }
-
-        if (resposta.ok) {
-            const dados = await resposta.json();
-            const itens = dados.itens || [];
             
-            if (itens.length > 0) {
-                todosOsProdutos = [...todosOsProdutos, ...itens];
-                console.log(`Página baixada! Já temos ${todosOsProdutos.length} produtos...`);
-                offset += limit; 
-            } else {
-                temMaisPaginas = false; 
+            if (resposta.status === 401) {
+                try {
+                    config.access_token = await renovarToken();
+                    resposta = await fetch(url, { 
+                        headers: { 'Authorization': `Bearer ${config.access_token}` }
+                    });
+                } catch(renovarErro) {
+                    console.error('❌ Falha ao tentar renovar token. Abortando sincronização.');
+                    return; // Sai silenciosamente da sync sem crachar o app
+                }
             }
-        } else {
-            console.error('❌ Falha ao tentar puxar a página:', await resposta.text());
-            temMaisPaginas = false;
-        }
-    }
 
-    catalogoEmMemoria = todosOsProdutos;
-    console.log(`✅ Sincronização concluída! Total: ${catalogoEmMemoria.length} produtos.\n`);
+            if (resposta.ok) {
+                const dados = await resposta.json();
+                const itens = dados.itens || [];
+                
+                if (itens.length > 0) {
+                    todosOsProdutos = [...todosOsProdutos, ...itens];
+                    console.log(`Página baixada! Já temos ${todosOsProdutos.length} produtos...`);
+                    offset += limit; 
+                } else {
+                    temMaisPaginas = false; 
+                }
+            } else {
+                console.error('❌ Falha ao tentar puxar a página:', await resposta.text());
+                temMaisPaginas = false;
+            }
+        }
+
+        catalogoEmMemoria = todosOsProdutos;
+        console.log(`✅ Sincronização concluída! Total: ${catalogoEmMemoria.length} produtos.\n`);
+    } catch (e) {
+        console.error('❌ Erro crítico em sincronizarCatalogo:', e);
+    }
 }
 
 setInterval(sincronizarCatalogo, 1000 * 60 * 10);
