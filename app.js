@@ -711,9 +711,9 @@ function openEditorProperties(id, type) {
             </div>
             
             ${type === 'rack' ? `
-                <button class="btn btn-secondary" onclick="window.generateQRCode('${item.id}')" style="width:100%; justify-content:center; margin-bottom: 1rem; border-color: var(--accent-primary); color: var(--text-primary);">
-                    <i class="fa-solid fa-qrcode"></i> Gerar QR Code (Auditoria)
-                </button>
+                <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1rem; text-align: center;">
+                    Para imprimir o QR Code desta estante, desative o Modo de Edição e clique nela novamente.
+                </div>
             ` : ''}
 
             <button class="btn" id="btn-delete" style="width:100%; background:var(--accent-danger); color:white;">
@@ -769,14 +769,15 @@ function openInspector(rackId) {
         <div style="display:flex; justify-content:space-between; margin-bottom: 1rem; align-items:center;">
             <span style="font-weight:bold; color:var(--text-secondary);">Gerenciar Níveis</span>
             <div style="display: flex; gap: 0.5rem;">
-                <button class="btn btn-secondary btn-small" onclick="window.generateQRCode('${rack.id}')" style="font-size: 0.75rem;" title="Imprimir QR Code para Auditoria Mobile">
-                    <i class="fa-solid fa-qrcode"></i> QR
-                </button>
                 <button class="btn btn-secondary btn-small" onclick="window.addLevelToRack('${rack.id}')" style="font-size: 0.75rem;">
                     <i class="fa-solid fa-layer-group"></i> + Nível
                 </button>
             </div>
         </div>
+        
+        <button class="btn btn-secondary" onclick="window.generateQRCode('${rack.id}')" style="width:100%; justify-content:center; margin-bottom: 1.5rem; border-color: var(--accent-primary); color: var(--text-primary); background: rgba(249, 115, 22, 0.1);">
+            <i class="fa-solid fa-qrcode" style="color: var(--accent-primary);"></i> Imprimir QR Code da Estante
+        </button>
     `;
     
     if (rack.levels.length === 0) {
