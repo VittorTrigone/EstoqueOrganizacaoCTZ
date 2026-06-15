@@ -3382,8 +3382,8 @@ window.startMobileAudit = async function(rackId) {
                 }
             });
 
-            // Fecha a modal IMEDIATAMENTE para o usuário não esperar
-            modal.classList.add('hidden');
+            // Oculta a UI IMEDIATAMENTE para o usuário não esperar
+            document.getElementById('mobile-audit-container').classList.add('hidden');
             
             // Recalculate weights...
             await saveData();
