@@ -140,6 +140,31 @@ async function loadData() {
         warehouseData = stored ? JSON.parse(stored) : JSON.parse(JSON.stringify(defaultWarehouseData));
     }
     
+    // Dedup items and merge qty (cleanup bug)
+    if (warehouseData.racks) {
+        let hasChanges = false;
+        warehouseData.racks.forEach(rack => {
+            if (rack.levels) {
+                rack.levels.forEach(level => {
+                    if (level.items) {
+                        const uniqueItems = [];
+                        const seen = new Set();
+                        level.items.forEach(item => {
+                            if (!seen.has(item.sku)) {
+                                seen.add(item.sku);
+                                uniqueItems.push(item);
+                            } else {
+                                hasChanges = true;
+                            }
+                        });
+                        level.items = uniqueItems;
+                    }
+                });
+            }
+        });
+        if (hasChanges) saveData();
+    }
+    
     // Sempre re-renderiza o galpão após carregar
     renderFloorPlan();
 }
@@ -3269,9 +3294,7 @@ window.startMobileAudit = async function(rackId) {
                 if (qty > 0) {
                     const level = rack.levels.find(l => l.id === levelId);
                     if (level) {
-                        for(let i=0; i<qty; i++) {
-                            level.items.push({ sku, name });
-                        }
+                        level.items.push({ sku, name, qty });
                         itemsReport.push({ sku, name, quantidade: qty, levelId });
                     }
                 }
@@ -3281,9 +3304,7 @@ window.startMobileAudit = async function(rackId) {
             addedProducts.forEach(prod => {
                 const level = rack.levels.find(l => l.id === prod.levelId);
                 if (level) {
-                    for(let i=0; i<prod.quantidade; i++) {
-                        level.items.push({ sku: prod.sku, name: prod.name });
-                    }
+                    level.items.push({ sku: prod.sku, name: prod.name, qty: prod.quantidade });
                 }
             });
 
