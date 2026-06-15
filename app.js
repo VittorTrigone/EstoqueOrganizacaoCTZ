@@ -147,17 +147,23 @@ async function loadData() {
             if (rack.levels) {
                 rack.levels.forEach(level => {
                     if (level.items) {
-                        const uniqueItems = [];
-                        const seen = new Set();
+                        const uniqueMap = {};
                         level.items.forEach(item => {
-                            if (!seen.has(item.sku)) {
-                                seen.add(item.sku);
-                                uniqueItems.push(item);
+                            if (!uniqueMap[item.sku]) {
+                                uniqueMap[item.sku] = { ...item };
+                                // For manually dragged visual boxes before Mobile Audit existed
+                                if (uniqueMap[item.sku].qty === undefined) {
+                                    uniqueMap[item.sku].qty = 1; 
+                                }
                             } else {
+                                // Se for duplicado, nós SOMAMOS a quantidade para não perder dados!
+                                const currentQty = uniqueMap[item.sku].qty ? Number(uniqueMap[item.sku].qty) : 1;
+                                const newQty = item.qty ? Number(item.qty) : 1;
+                                uniqueMap[item.sku].qty = currentQty + newQty;
                                 hasChanges = true;
                             }
                         });
-                        level.items = uniqueItems;
+                        level.items = Object.values(uniqueMap);
                     }
                 });
             }
@@ -1711,11 +1717,14 @@ function renderItemList(filterText = '') {
             if (!level.items) return;
             level.items.forEach((item, itemIndex) => {
                 if (!skuMap[item.sku]) {
-                    skuMap[item.sku] = { name: item.name, olistId: item.olistId, placements: [] };
+                    skuMap[item.sku] = { name: item.name, olistId: item.olistId, placements: [], totalQty: 0 };
                 }
+                const qty = item.qty !== undefined && item.qty !== null ? Number(item.qty) : 1;
+                skuMap[item.sku].totalQty += qty;
+                
                 skuMap[item.sku].placements.push({
                     corridor: aisleName, rackId: rack.id, rackName: rack.name,
-                    levelId: level.id, levelName: level.name, itemIndex: itemIndex
+                    levelId: level.id, levelName: level.name, itemIndex: itemIndex, qty: qty
                 });
             });
         });
@@ -1747,7 +1756,7 @@ function renderItemList(filterText = '') {
                 <i class="fa-solid fa-spinner fa-spin" style="color: var(--text-secondary)"></i>
             </td>
             <td style="padding: 1rem; border-bottom: 1px solid var(--border-color); font-weight: bold; color: var(--accent-primary);">
-                ${itemData.placements.length}
+                ${itemData.totalQty}
             </td>
             <td style="padding: 1rem; border-bottom: 1px solid var(--border-color); color: var(--accent-success); font-weight: 500;">${locationStr || 'Sem Localização'}</td>
             <td style="padding: 1rem; border-bottom: 1px solid var(--border-color);">
@@ -2453,8 +2462,12 @@ document.addEventListener('DOMContentLoaded', () => {
         inputClientSecret.type = 'text'; // Show text temporarily
         inputClientSecret.value = 'Aguarde...';
         
-        fetch(`${API_BASE_URL}/api/config`)
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+        
+        fetch(`${API_BASE_URL}/api/config`, { signal: controller.signal })
             .then(res => {
+                clearTimeout(timeoutId);
                 if (!res.ok) throw new Error('Servidor indisponível');
                 return res.json();
             })
