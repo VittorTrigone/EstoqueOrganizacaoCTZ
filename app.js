@@ -2449,13 +2449,23 @@ document.addEventListener('DOMContentLoaded', () => {
         spanRedirect.innerText = finalRedirectUri;
 
         // Buscar config inicial
+        inputClientId.value = 'Carregando do servidor...';
+        inputClientSecret.value = 'Carregando do servidor...';
+        
         fetch(`${API_BASE_URL}/api/config`)
-            .then(res => res.json())
-            .then(data => {
-                if (data.client_id) inputClientId.value = data.client_id;
-                if (data.client_secret) inputClientSecret.value = data.client_secret;
+            .then(res => {
+                if (!res.ok) throw new Error('Servidor indisponível');
+                return res.json();
             })
-            .catch(err => console.log('Erro ao buscar config do OAuth'));
+            .then(data => {
+                inputClientId.value = data.client_id || '';
+                inputClientSecret.value = data.client_secret || '';
+            })
+            .catch(err => {
+                console.log('Erro ao buscar config do OAuth', err);
+                inputClientId.value = 'Erro de Conexão (Servidor Dormindo?)';
+                inputClientSecret.value = 'Atualize a página em 1 minuto...';
+            });
 
         // Lógica de Editar
         btnOAuthEdit.addEventListener('click', () => {
