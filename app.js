@@ -3313,7 +3313,6 @@ window.startMobileAudit = async function(rackId) {
                 }
             });
 
-            // Adicionar os produtos novos
             addedProducts.forEach(prod => {
                 const level = rack.levels.find(l => l.id === prod.levelId);
                 if (level) {
@@ -3321,16 +3320,19 @@ window.startMobileAudit = async function(rackId) {
                 }
             });
 
-            // Recalculate weights... (Simplification: just trigger saveData and hope logic stays intact)
+            // Fecha a modal IMEDIATAMENTE para o usuário não esperar
+            modal.classList.add('hidden');
+            
+            // Recalculate weights...
             await saveData();
+            window.renderRackVisualizer(); // Atualiza a UI imediatamente
 
             // 2. Upload signature to base64
-            // Since we scaled it, the base64 will be fine
             const sigBase64 = canvas.toDataURL("image/png");
             const obsText = document.getElementById('mobile-audit-obs').value.trim();
 
-            // 3. Save to `contagens_inventario`
-            const { error: dbError } = await supabaseApp.from('contagens_inventario').insert({
+            // 3. Save to `contagens_inventario` no Supabase (Rápido)
+            supabaseApp.from('contagens_inventario').insert({
                 rack_id: rack.id,
                 rack_nome: rack.name,
                 funcionario: window.auditWorkerName,
@@ -3338,12 +3340,23 @@ window.startMobileAudit = async function(rackId) {
                 itens_contados: itemsReport,
                 produtos_adicionados: addedProducts,
                 observacao: obsText
+            }).then(({error}) => {
+                if (error) console.error("Erro ao salvar relatório:", error);
             });
 
-            if (dbError) throw dbError;
-
-            alert("Auditoria salva com sucesso!");
-            
+            // 4. Send to Node.js backend para atualizar Olist/Tiny (Pode demorar se o Render estiver dormindo)
+            fetch(`${API_BASE_URL}/api/inventario`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    rack_id: rack.id,
+                    itens: itemsReport,
+                    observacoes: obsText
+                })
+            }).then(res => res.json())
+              .then(data => console.log("Inventário sincronizado com backend:", data))
+              .catch(err => console.error("Erro ao sincronizar inventário:", err));
+              
             // Redireciona o usuário (ou limpa a tela)
             document.body.innerHTML = `
                 <div style="height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; background:var(--bg-base); color:var(--text-primary);">
