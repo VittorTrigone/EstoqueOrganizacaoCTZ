@@ -313,14 +313,35 @@ app.put('/api/produtos/:id/localizacao', async (req, res) => {
 
 app.get('/api/status', async (req, res) => {
     try {
-        const config = await lerConfig();
-        if (config.access_token && config.refresh_token) {
-            res.json({ conectado: true });
-        } else {
-            res.json({ conectado: false });
+        let config = await lerConfig();
+        if (!config.access_token || !config.refresh_token) {
+            return res.json({ conectado: false });
         }
+
+        // Testar de verdade se o token funciona batendo na API do Tiny
+        const urlPing = 'https://erp.tiny.com.br/public-api/v3/info'; // Endpoint leve
+        let resposta = await fetch(urlPing, { 
+            headers: { 'Authorization': `Bearer ${config.access_token}` }
+        });
+
+        if (resposta.status === 401) {
+            try {
+                // Tenta renovar. Se falhar, o refresh_token morreu.
+                config.access_token = await renovarToken();
+                return res.json({ conectado: true });
+            } catch(e) {
+                // Refresh token expirou! Limpa os tokens do banco para o UI saber.
+                config.access_token = null;
+                config.refresh_token = null;
+                await salvarConfig(config);
+                return res.json({ conectado: false });
+            }
+        }
+
+        res.json({ conectado: true });
+
     } catch(err) {
-        res.status(500).json({ erro: 'Erro ao ler config' });
+        res.status(500).json({ erro: 'Erro ao checar status' });
     }
 });
 
