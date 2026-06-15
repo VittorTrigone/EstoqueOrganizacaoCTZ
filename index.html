@@ -248,6 +248,9 @@
                     <p id="rv-rack-aisle" style="margin: 0.2rem 0 0 0; color: var(--text-secondary); font-size: 0.875rem;">Corredor A</p>
                 </div>
                 <div style="display: flex; gap: 1rem;">
+                    <button class="btn btn-secondary" onclick="window.generateQRCode(currentRackVisualizerId)" style="border-color: var(--accent-primary); color: var(--accent-primary);">
+                        <i class="fa-solid fa-qrcode"></i> Imprimir QR Code
+                    </button>
                     <button class="btn btn-secondary" onclick="window.addLevelToRackVisualizer()">
                         <i class="fa-solid fa-layer-group"></i> + Adicionar Nível
                     </button>
