@@ -173,12 +173,11 @@ app.get('/api/debug-estoque/:id', async (req, res) => {
 app.get('/api/produtos', (req, res) => {
     const termoPesquisa = (req.query.pesquisa || '').toLowerCase().trim();
     
-    // Filtra apenas produtos ativos e que não são variações (nem pai, nem filho)
+    // Filtra apenas produtos ativos e oculta os produtos "Pai" (pois as variações é que vão para a prateleira)
     const produtosAtivos = catalogoEmMemoria.filter(p => {
         const ativo = !p.situacao || p.situacao === 'A';
         const isPai = p.tipoVariacao === 'P' || p.tipo_variacao === 'P' || p.classe_produto === 'P';
-        const isFilho = p.tipoVariacao === 'V' || p.tipo_variacao === 'V' || p.idProdutoPai > 0 || p.id_produto_pai > 0 || p.classe_produto === 'V';
-        return ativo && !isPai && !isFilho;
+        return ativo && !isPai;
     });
 
     if (!termoPesquisa) {
@@ -200,12 +199,11 @@ app.post('/api/produtos/batch', async (req, res) => {
         return res.json({ itens: [] });
     }
     
-    // Filtra apenas ativos e que não são variações
+    // Filtra apenas produtos ativos e oculta os produtos "Pai" (pois as variações é que vão para a prateleira)
     const produtosAtivos = catalogoEmMemoria.filter(p => {
         const ativo = !p.situacao || p.situacao === 'A';
         const isPai = p.tipoVariacao === 'P' || p.tipo_variacao === 'P' || p.classe_produto === 'P';
-        const isFilho = p.tipoVariacao === 'V' || p.tipo_variacao === 'V' || p.idProdutoPai > 0 || p.id_produto_pai > 0 || p.classe_produto === 'V';
-        return ativo && !isPai && !isFilho;
+        return ativo && !isPai;
     });
     const resultados = produtosAtivos.filter(p => skus.includes(p.sku));
     
