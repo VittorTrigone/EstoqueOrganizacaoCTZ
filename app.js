@@ -2450,7 +2450,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Buscar config inicial
         inputClientId.value = 'Carregando do servidor...';
-        inputClientSecret.value = 'Carregando do servidor...';
+        inputClientSecret.type = 'text'; // Show text temporarily
+        inputClientSecret.value = 'Aguarde...';
         
         fetch(`${API_BASE_URL}/api/config`)
             .then(res => {
@@ -2458,13 +2459,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 return res.json();
             })
             .then(data => {
+                inputClientSecret.type = 'password'; // Revert back
                 inputClientId.value = data.client_id || '';
                 inputClientSecret.value = data.client_secret || '';
             })
             .catch(err => {
                 console.log('Erro ao buscar config do OAuth', err);
-                inputClientId.value = 'Erro de Conexão (Servidor Dormindo?)';
-                inputClientSecret.value = 'Atualize a página em 1 minuto...';
+                inputClientId.value = 'Erro de Conexão (Servidor Render Dormindo?)';
+                inputClientSecret.type = 'text';
+                inputClientSecret.value = 'Dê um F5 na página em 1 minuto para acordá-lo...';
             });
 
         // Lógica de Editar
