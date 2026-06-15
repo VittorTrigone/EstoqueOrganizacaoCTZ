@@ -1640,6 +1640,18 @@ window.renderAuditoriasList = async function() {
         
         listEl.innerHTML = data.map(audit => {
             const dataFormatada = new Date(audit.data_contagem).toLocaleString('pt-BR');
+            
+            // Buscar o nome do corredor
+            let corridorName = '';
+            if (warehouseData.racks) {
+                const foundRack = warehouseData.racks.find(r => r.id === audit.rack_id);
+                if (foundRack) {
+                    const aisle = window.findParentAisleForRack ? window.findParentAisleForRack(foundRack) : null;
+                    if (aisle) corridorName = aisle.name;
+                }
+            }
+            const rackTitle = corridorName ? `${corridorName} > ${audit.rack_nome}` : audit.rack_nome;
+            
             let itensHtml = '';
             
             // Render items
@@ -1669,10 +1681,13 @@ window.renderAuditoriasList = async function() {
             }
             
             return `
-                <div class="auditoria-card">
-                    <div class="auditoria-card-header">
+                <div class="auditoria-card" style="position: relative;">
+                    <button class="btn-small" onclick="window.deleteAuditoria('${audit.id}')" style="position: absolute; top: 1rem; right: 1rem; background: var(--bg-surface-elevated); color: var(--accent-danger); border: 1px solid var(--border-color); cursor: pointer; border-radius: 4px;" title="Excluir Auditoria">
+                        <i class="fa-solid fa-trash"></i> Excluir
+                    </button>
+                    <div class="auditoria-card-header" style="margin-top: 1.5rem;">
                         <div>
-                            <h3 style="margin: 0 0 0.5rem 0; color: var(--text-primary);"><i class="fa-solid fa-server" style="color:var(--text-secondary)"></i> ${audit.rack_nome}</h3>
+                            <h3 style="margin: 0 0 0.5rem 0; color: var(--text-primary);"><i class="fa-solid fa-server" style="color:var(--text-secondary)"></i> ${rackTitle}</h3>
                             <div style="font-size: 0.85rem; color: var(--text-secondary);"><i class="fa-regular fa-clock"></i> ${dataFormatada}</div>
                             <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.25rem;"><i class="fa-solid fa-user"></i> ${audit.funcionario}</div>
                         </div>
@@ -1697,6 +1712,19 @@ window.renderAuditoriasList = async function() {
     } catch(err) {
         console.error("Erro ao carregar auditorias:", err);
         listEl.innerHTML = '<div style="text-align:center; padding: 2rem; color:var(--accent-danger);">Erro ao carregar auditorias.</div>';
+    }
+};
+
+window.deleteAuditoria = async function(auditId) {
+    if (!confirm('Tem certeza que deseja excluir esta contagem do histórico?')) return;
+    try {
+        const { error } = await supabaseApp.from('contagens_inventario').delete().eq('id', auditId);
+        if (error) throw error;
+        
+        window.renderAuditoriasList();
+    } catch(err) {
+        console.error("Erro ao excluir auditoria:", err);
+        alert('Falha ao excluir a auditoria do banco de dados.');
     }
 };
 
