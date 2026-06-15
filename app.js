@@ -1648,8 +1648,9 @@ window.renderAuditoriasList = async function() {
             
             // Buscar o nome do corredor
             let corridorName = '';
+            let foundRack = null;
             if (warehouseData.racks) {
-                const foundRack = warehouseData.racks.find(r => r.id === audit.rack_id);
+                foundRack = warehouseData.racks.find(r => r.id === audit.rack_id);
                 if (foundRack) {
                     const aisle = window.findParentAisleForRack ? window.findParentAisleForRack(foundRack) : null;
                     if (aisle) corridorName = aisle.name;
